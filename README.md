@@ -1,11 +1,18 @@
 # Grain Lab
 
+### ▶ [fpinzn.github.io/grain-lab](https://fpinzn.github.io/grain-lab/)
+
 A grainy-gradient generator for brand backgrounds. Soft overlapping colour forms on a
 near-black ground, with a film-grain pass over the top — plus a Bézier shape editor and a
 motion timeline that bakes and records seamless loops.
 
 Everything is one self-contained HTML file. No build step, no dependencies, no network
 calls: open `grain-lab.html` and it runs.
+
+Use the hosted link for anything you want to keep — it is served top-level, so exports
+download normally at any size. Embedded in a sandboxed frame (a Claude artifact, for
+instance) the browser blocks downloads outright and the page falls back to offering the
+rendered image for a manual save.
 
 ## What it does
 
@@ -52,7 +59,24 @@ canvas pixel register), motion tracks and pose morphing, bake and playback, and 
 export delivery branch. Exits non-zero on failure. Set `$CHROME` if Chrome isn't at the
 default macOS path.
 
-Two harness limits are documented at the top of `grain-lab.tests.js`:
+### Publishing
+
+Pushing to `main` runs the suite on a GitHub runner and, only if it passes, deploys to
+Pages. A failing test leaves the live site on its previous version rather than replacing
+it with a broken one.
+
+A `pre-push` hook runs the same suite locally first, so failures surface before the push
+leaves the machine:
+
+```sh
+git config core.hooksPath hooks    # enable  (already set in this clone)
+git config --unset core.hooksPath  # disable
+git push --no-verify               # bypass once
+```
+
+### Harness limits
+
+Two are documented at the top of `grain-lab.tests.js`:
 `requestAnimationFrame` doesn't fire under `--virtual-time-budget`, so the playback and
 record clocks are exercised only through their timer fallback; and headless has no
 compositor, so canvas capture yields an empty file — the record test therefore asserts an
