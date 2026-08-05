@@ -1,0 +1,2065 @@
+<title>Grain Lab</title>
+<style>
+  :root{
+    --ground:#0a0a0d;
+    --panel:#141419;
+    --panel-2:#1b1b22;
+    --line:#26262e;
+    --ink:#ededf2;
+    --muted:#8e8e9a;
+    --faint:#5c5c66;
+    --accent:#e0a458;
+    --accent-dim:#8a6534;
+    --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.55;
+  }
+  header{
+    display:flex;align-items:baseline;gap:14px;
+    padding:18px 28px;border-bottom:1px solid var(--line);
+  }
+  header h1{
+    font-family:var(--mono);font-size:14px;font-weight:600;
+    letter-spacing:.22em;text-transform:uppercase;margin:0;
+  }
+  header .sub{font-size:13px;color:var(--muted)}
+  header .sub b{color:var(--accent);font-weight:600}
+
+  /* controls on the left, picture on the right: the timeline has to be visible at
+     the same time as the frame it is changing */
+  .app{
+    display:grid;grid-template-columns:296px 330px minmax(0,1fr);
+    gap:0;align-items:start;
+  }
+  /* Placement is explicit below: with auto-placement a full-width .motion pushes
+     the stage down into the narrow first column. */
+  @media (max-width:1240px){
+    .app{grid-template-columns:296px minmax(0,1fr)}
+    .rail{grid-column:1;grid-row:1}
+    .stage{grid-column:2;grid-row:1}
+    .motion{
+      grid-column:1/-1;grid-row:2;
+      border-right:none;border-top:1px solid var(--line);
+    }
+    /* full width again, so spread the controls out rather than stacking them */
+    .mglobals{flex-direction:row;flex-wrap:wrap;gap:10px 22px}
+    .mglobals .mfield{flex:0 1 auto}
+    .mglobals .mfield input[type=range]{flex:none;width:120px}
+    .mglobals .mfield select{flex:none;width:auto}
+    .tracks{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
+  }
+  @media (max-width:820px){
+    .app{grid-template-columns:1fr}
+    .rail{grid-column:1;grid-row:1}
+    .stage{grid-column:1;grid-row:2}       /* picture before the timeline */
+    .motion{grid-column:1;grid-row:3}
+  }
+
+  /* ---------- control rail ---------- */
+  .rail{
+    border-right:1px solid var(--line);
+    padding:20px 22px 30px;
+    display:flex;flex-direction:column;gap:26px;
+    font-family:var(--mono);
+  }
+  @media (max-width:820px){ .rail{border-right:none;border-bottom:1px solid var(--line)} }
+  .group{display:flex;flex-direction:column;gap:12px}
+  .group>h2{
+    font-size:10.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--faint);margin:0;
+  }
+  .row{display:flex;align-items:center;gap:10px}
+  .row label{
+    flex:1;font-size:11.5px;color:var(--muted);letter-spacing:.02em;
+  }
+  .row .val{
+    font-size:11.5px;color:var(--ink);min-width:44px;text-align:right;
+    font-variant-numeric:tabular-nums;
+  }
+  input[type=range]{
+    flex:2.2;appearance:none;-webkit-appearance:none;height:22px;background:transparent;margin:0;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:2px;background:var(--line);border-radius:1px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;
+    background:var(--accent);margin-top:-5px;border:none;
+  }
+  input[type=range]::-moz-range-track{height:2px;background:var(--line);border-radius:1px}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--accent);border:none}
+  input[type=range]:focus-visible{outline:1px solid var(--accent);outline-offset:4px;border-radius:4px}
+
+  .swatches{display:flex;gap:8px;flex-wrap:wrap}
+  .sw{position:relative;width:40px;height:40px}
+  .sw input[type=color]{
+    appearance:none;-webkit-appearance:none;width:100%;height:100%;
+    border:1px solid var(--line);border-radius:6px;padding:0;background:none;cursor:pointer;
+  }
+  .sw input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+  .sw input[type=color]::-webkit-color-swatch{border:none;border-radius:4px}
+  .sw input[type=color]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .sw span{
+    position:absolute;left:0;right:0;top:100%;margin-top:3px;text-align:center;
+    font-size:9px;letter-spacing:.08em;color:var(--faint);text-transform:uppercase;
+  }
+  .swatches{padding-bottom:14px}
+
+  button{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;
+    background:var(--panel-2);color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;
+    padding:9px 14px;cursor:pointer;
+  }
+  button:hover{border-color:var(--faint)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button[disabled]{opacity:.38;cursor:not-allowed}
+  button[disabled]:hover{border-color:var(--line)}
+  button.primary{
+    background:var(--accent);border-color:var(--accent);color:#141419;font-weight:600;
+  }
+  button.primary:hover{background:#eab46e}
+  .btnrow{display:flex;gap:8px}
+  .btnrow button{flex:1}
+
+  select{
+    font-family:var(--mono);font-size:11.5px;background:var(--panel-2);color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;padding:8px 10px;flex:2.2;
+  }
+  select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  .check{display:flex;align-items:center;gap:9px;font-size:11.5px;color:var(--muted);cursor:pointer}
+  .check input{accent-color:var(--accent);width:14px;height:14px;margin:0}
+
+  .seed{font-size:10.5px;color:var(--faint);letter-spacing:.05em}
+  .seed b{color:var(--muted);font-weight:400}
+
+  .exportnote{
+    font-size:10.5px;line-height:1.55;letter-spacing:.04em;
+    color:var(--faint);margin:0;
+  }
+  .exportnote.ok{color:var(--muted)}
+  .exportnote.err{color:var(--accent)}
+  .exportnote:empty{display:none}
+  .savedimg{
+    width:100%;height:auto;display:block;
+    border-radius:6px;border:1px solid var(--line);
+  }
+  .savedimg[hidden]{display:none}
+
+  /* ---------- stage ---------- */
+  .stage{
+    padding:28px;display:flex;flex-direction:column;gap:14px;align-items:center;
+  }
+  /* the frame carries a gutter around the artboard: control points routinely sit
+     outside the image and still have to be visible and grabbable. Percentage
+     padding resolves against width on every side, so the gutter stays square. */
+  .stage-frame{position:relative;width:100%;max-width:1100px;padding:6.4%}
+  .canvas-clip{
+    /* box-shadow, not border: a border would inset the canvas inside the frame and
+       throw the overlay a pixel out of register with the pixels it points at */
+    box-shadow:0 0 0 1px var(--line);border-radius:10px;overflow:hidden;
+    background:#000;line-height:0;
+  }
+  canvas#view{width:100%;height:auto;display:block}
+  .stage-note{
+    font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.06em;
+    align-self:center;
+  }
+
+  /* ---------- shape editor ---------- */
+  svg.ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  svg.ov[hidden]{display:none}
+  svg.ov .catch{pointer-events:fill;touch-action:none}
+  svg.ov .hit{pointer-events:fill;cursor:grab;touch-action:none}
+  svg.ov .hit.on{cursor:move}
+  svg.ov .outline,svg.ov .halo,svg.ov .spoke{fill:none;pointer-events:none}
+  svg.ov .ctr,svg.ov .pt{pointer-events:all;touch-action:none}
+  svg.ov .ctr{cursor:move}
+  svg.ov .pt{cursor:grab}
+  svg.ov .ctr:focus,svg.ov .pt:focus{outline:none;stroke:#e0a458}
+
+  .chips{
+    display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+    font-family:var(--mono);line-height:1.4;
+  }
+  .chip{
+    display:flex;align-items:center;gap:7px;
+    font-size:11px;letter-spacing:.06em;color:var(--muted);
+    background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:6px 13px 6px 9px;
+  }
+  .chip:hover{border-color:var(--faint)}
+  .chip .dot{width:11px;height:11px;border-radius:50%;flex:none}
+  .chip[aria-pressed=true]{border-color:var(--accent);color:var(--ink);background:var(--panel-2)}
+
+  .hint{
+    font-family:var(--mono);font-size:10.5px;color:var(--faint);
+    letter-spacing:.05em;text-align:center;max-width:640px;
+  }
+  .hint b{color:var(--muted);font-weight:400}
+
+  /* ---------- motion ---------- */
+  .motion{
+    border-right:1px solid var(--line);
+    padding:20px 20px 30px;
+    display:flex;flex-direction:column;gap:14px;
+    font-family:var(--mono);
+    min-width:0;
+  }
+  .motion h2{
+    font-size:10.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--faint);margin:0;
+  }
+  .mhead{display:flex;align-items:center;gap:12px}
+  .transport{display:flex;gap:6px;margin-left:auto}
+  .transport button{padding:7px 11px}
+  .mglobals{display:flex;flex-direction:column;gap:9px}
+  .mfield{display:flex;align-items:center;gap:9px;font-size:11.5px;color:var(--muted);min-width:0}
+  .mfield label{flex:none;min-width:56px}
+  .mfield .val{color:var(--ink);font-variant-numeric:tabular-nums;flex:none;min-width:38px;text-align:right}
+  .mfield input[type=range]{flex:1;width:auto;min-width:0}
+  .mfield select{flex:1;min-width:0}
+
+  .scrubwrap{display:flex;align-items:center;gap:14px}
+  .scrubwrap input[type=range]{flex:1}
+  .scrubwrap .val{
+    font-size:11.5px;color:var(--ink);font-variant-numeric:tabular-nums;
+    min-width:48px;text-align:right;
+  }
+  .progress{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+  .progress[hidden]{display:none}
+  .progress i{display:block;height:100%;width:0;background:var(--accent)}
+
+  .tracks{display:flex;flex-direction:column;gap:8px}
+  /* compact card: identity + endpoints, then the target control, then the curve
+     and the slice of the loop it moves during */
+  .track{
+    display:flex;flex-direction:column;gap:7px;
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:9px 10px;font-size:11.5px;min-width:0;
+  }
+  .track .trow{display:flex;align-items:center;gap:8px;min-width:0}
+  .track .tname{color:var(--ink);letter-spacing:.03em;flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .track .tfrom,.track .tto-v{
+    color:var(--muted);font-variant-numeric:tabular-nums;flex:none;
+  }
+  .track .tarrow{color:var(--faint);flex:none}
+  .track .tto{display:block;min-width:0}
+  .track .tto input[type=range]{width:100%;flex:none}
+  .track .tto input[type=color]{
+    width:100%;height:24px;padding:0;cursor:pointer;
+    border:1px solid var(--line);border-radius:4px;background:none;
+    appearance:none;-webkit-appearance:none;
+  }
+  .track .tto input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+  .track .tto input[type=color]::-webkit-color-swatch{border:none;border-radius:3px}
+  .track .tposehint{color:var(--faint);font-size:10.5px;display:block;line-height:1.4}
+  .track .tease{display:flex;align-items:center;gap:6px;flex:none}
+  .track .tease select{flex:none;padding:5px 6px;font-size:10.5px;max-width:112px}
+  .track .win{flex:1;min-width:56px}
+  .sw-mini{
+    width:22px;height:13px;border-radius:3px;
+    border:1px solid var(--line);display:inline-block;vertical-align:middle;
+  }
+  .curve{width:20px;height:20px;flex:none;overflow:visible}
+  .curve path{fill:none;stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+  .tdel{
+    padding:4px 7px;line-height:1;background:none;
+    border-color:transparent;color:var(--faint);
+  }
+  .tdel:hover{color:var(--accent);border-color:var(--line)}
+
+  /* per-track time window */
+  .win{position:relative;height:24px;touch-action:none}
+  .win .wtrack{position:absolute;left:0;right:0;top:11px;height:2px;background:var(--line);border-radius:1px}
+  .win .wbar{position:absolute;top:9px;height:6px;background:var(--accent-dim);border-radius:3px}
+  .win .wgrip{
+    position:absolute;top:5px;width:10px;height:14px;margin-left:-5px;
+    border-radius:3px;background:var(--accent);cursor:ew-resize;
+  }
+  .win .wgrip:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  .posepick{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .posepick button{border:none;border-radius:0;padding:6px 13px;background:var(--panel-2);color:var(--muted)}
+  .posepick button[aria-pressed=true]{background:var(--accent);color:#141419;font-weight:600}
+  #poserow[hidden]{display:none}
+
+  .motionnote{font-size:10.5px;line-height:1.55;color:var(--faint);margin:0;letter-spacing:.04em}
+  .motionnote.ok{color:var(--muted)}
+  .motionnote.err{color:var(--accent)}
+  .motionnote:empty{display:none}
+  .savedvideo{
+    width:100%;max-width:480px;border-radius:8px;border:1px solid var(--line);display:block;
+  }
+  .savedvideo[hidden]{display:none}
+
+  /* ---------- method write-up ---------- */
+  .method{
+    border-top:1px solid var(--line);
+    padding:54px 28px 80px;
+  }
+  .method-inner{max-width:640px;margin:0 auto}
+  .method h2{
+    font-family:var(--mono);font-size:12px;font-weight:600;
+    letter-spacing:.24em;text-transform:uppercase;color:var(--accent);
+    margin:0 0 18px;
+  }
+  .method h3{
+    font-size:16px;font-weight:600;margin:34px 0 8px;text-wrap:balance;
+  }
+  .method p{margin:0 0 14px;color:#c9c9d2}
+  .method p b{color:var(--ink)}
+  .method table{
+    border-collapse:collapse;width:100%;margin:10px 0 20px;
+    font-family:var(--mono);font-size:12px;
+  }
+  .method th{
+    text-align:left;font-weight:600;color:var(--faint);letter-spacing:.1em;
+    text-transform:uppercase;font-size:10px;padding:7px 12px 7px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .method td{
+    padding:7px 12px 7px 0;border-bottom:1px solid var(--line);
+    color:#c9c9d2;font-variant-numeric:tabular-nums;
+  }
+  .method td:first-child{color:var(--muted)}
+  .codewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin:10px 0 20px}
+  .method pre{
+    margin:0;padding:16px 18px;font-family:var(--mono);font-size:12px;line-height:1.6;
+    color:#d6d6de;
+  }
+  .method .c{color:var(--faint)}
+  .method .a{color:var(--accent)}
+  ol.steps{margin:0 0 14px;padding-left:22px;color:#c9c9d2}
+  ol.steps li{margin-bottom:10px}
+  ol.steps li b{color:var(--ink)}
+</style>
+
+<header>
+  <h1>Grain Lab</h1>
+  <span class="sub">grainy-gradient generator · parameters measured from your reference images, <b>method below</b></span>
+</header>
+
+<div class="app">
+  <aside class="rail">
+
+    <div class="group">
+      <h2>Palette</h2>
+      <div class="swatches">
+        <div class="sw"><input type="color" id="bg" value="#060608" aria-label="Background color"><span>bg</span></div>
+        <div class="sw"><input type="color" id="c0" value="#2e52f0" aria-label="Shape color 1"><span>c1</span></div>
+        <div class="sw"><input type="color" id="c1" value="#8fb0ff" aria-label="Shape color 2"><span>c2</span></div>
+        <div class="sw"><input type="color" id="c2" value="#e844b4" aria-label="Shape color 3"><span>c3</span></div>
+        <div class="sw"><input type="color" id="c3" value="#f59a2b" aria-label="Shape color 4"><span>c4</span></div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Form</h2>
+      <div class="row"><label for="blobs">layers</label><input type="range" id="blobs" min="1" max="7" step="1" value="4"><span class="val" id="blobs-v">4</span></div>
+      <div class="row"><label for="soft">edge blur</label><input type="range" id="soft" min="0.1" max="4" step="0.1" value="0.8"><span class="val" id="soft-v">0.8%</span></div>
+      <div class="row"><label for="enoise">edge dissolve</label><input type="range" id="enoise" min="0" max="100" step="1" value="60"><span class="val" id="enoise-v">60</span></div>
+      <div class="row"><label for="contrast">contrast</label><input type="range" id="contrast" min="0" max="100" step="1" value="70"><span class="val" id="contrast-v">70</span></div>
+      <div class="row"><label for="rim">rim light</label><input type="range" id="rim" min="0" max="100" step="1" value="55"><span class="val" id="rim-v">55</span></div>
+      <div class="row"><label for="spread">spread</label><input type="range" id="spread" min="0" max="100" step="1" value="55"><span class="val" id="spread-v">55</span></div>
+      <label class="check"><input type="checkbox" id="linear"> linear gradient fill</label>
+      <div class="btnrow">
+        <button id="shuffle" type="button">↻ shuffle shapes</button>
+      </div>
+      <div class="seed">seed <b id="seed-v">—</b></div>
+    </div>
+
+    <div class="group">
+      <h2>Shape editor</h2>
+      <label class="check"><input type="checkbox" id="edit" checked> show control points</label>
+      <div class="row"><label for="tension">curve tension</label><input type="range" id="tension" min="0" max="100" step="1" value="100"><span class="val" id="tension-v">1.00</span></div>
+      <div class="btnrow">
+        <button id="resetblob" type="button" disabled>↺ reset shape</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Grain</h2>
+      <div class="row"><label for="amount">amount σ</label><input type="range" id="amount" min="0" max="40" step="1" value="15"><span class="val" id="amount-v">15</span></div>
+      <div class="row"><label for="gsize">grain size</label><input type="range" id="gsize" min="1" max="4" step="1" value="2"><span class="val" id="gsize-v">2px</span></div>
+      <div class="row"><label for="chroma">chroma</label><input type="range" id="chroma" min="0" max="100" step="1" value="35"><span class="val" id="chroma-v">35</span></div>
+      <label class="check"><input type="checkbox" id="shadow" checked> keep shadows clean</label>
+    </div>
+
+    <div class="group">
+      <h2>Export</h2>
+      <div class="row"><label for="aspect">aspect</label>
+        <select id="aspect">
+          <option value="1.5" selected>3 : 2</option>
+          <option value="1">1 : 1</option>
+          <option value="1.7778">16 : 9</option>
+          <option value="0.75">3 : 4</option>
+          <option value="3">3 : 1 banner</option>
+        </select>
+      </div>
+      <div class="row"><label for="scale">resolution</label>
+        <select id="scale">
+          <option value="1">1× · 1440 px</option>
+          <option value="2" selected>2× · 2880 px</option>
+          <option value="3">3× · 4320 px</option>
+        </select>
+      </div>
+      <button class="primary" id="download" type="button">Export PNG</button>
+      <p class="exportnote" id="exportnote" role="status" aria-live="polite"></p>
+      <button id="retryscale" type="button" hidden></button>
+      <img class="savedimg" id="savedimg" hidden alt="Rendered export — right-click and choose Save image as">
+    </div>
+
+  </aside>
+
+  <aside class="motion">
+    <div class="mhead">
+      <h2>Motion</h2>
+      <div class="transport">
+        <button id="playbtn" type="button">▶ play</button>
+        <button id="recbtn" type="button">⏺ rec</button>
+      </div>
+    </div>
+
+    <div class="mglobals">
+      <span class="mfield"><label for="loop">loop</label>
+        <input type="range" id="loop" min="1" max="16" step="0.5" value="6"><span class="val" id="loop-v">6.0s</span></span>
+      <span class="mfield"><label for="fps">fps</label>
+        <select id="fps"><option>12</option><option selected>24</option><option>30</option></select></span>
+      <span class="mfield"><label for="mode">wrap</label>
+        <select id="mode"><option value="pingpong" selected>ping-pong</option><option value="cycle">cycle</option></select></span>
+      <span class="mfield"><label for="bakew">frame</label>
+        <select id="bakew">
+          <option value="480">480 px</option>
+          <option value="720" selected>720 px</option>
+          <option value="960">960 px</option>
+          <option value="1200">1200 px</option>
+        </select></span>
+      <span class="mfield"><label for="vq">quality</label>
+        <select id="vq">
+          <option value="0.6">standard</option>
+          <option value="1.2" selected>high</option>
+          <option value="2.4">maximum</option>
+        </select></span>
+    </div>
+
+    <div class="scrubwrap">
+      <input type="range" id="scrub" min="0" max="1000" step="1" value="0" aria-label="Scrub the loop">
+      <span class="val" id="scrub-v">0.000</span>
+    </div>
+    <div class="progress" id="bakeprog" hidden><i></i></div>
+
+    <div class="tracks" id="tracks"></div>
+
+    <span class="mfield"><label for="addprop">animate</label>
+      <select id="addprop"><option value="">+ add a property…</option></select></span>
+    <span class="mfield" id="poserow" hidden><label>editing</label>
+      <span class="posepick">
+        <button id="poseA" type="button" aria-pressed="true">pose A</button><button id="poseB" type="button" aria-pressed="false">pose B</button>
+      </span>
+    </span>
+
+    <p class="motionnote" id="motionnote"></p>
+    <video class="savedvideo" id="savedvideo" hidden controls loop playsinline></video>
+  </aside>
+
+  <main class="stage">
+    <div class="stage-frame">
+      <div class="canvas-clip"><canvas id="view"></canvas></div>
+      <svg class="ov" id="ov" aria-label="Shape editor overlay"></svg>
+    </div>
+    <div class="chips" id="chips"></div>
+    <p class="hint">click a shape to select · drag <b>◆</b> to move it · drag <b>●</b> to bend the curve ·
+    arrow keys nudge a focused point, <b>shift</b> for bigger steps · handles never reach the export</p>
+    <span class="stage-note" id="dims"></span>
+  </main>
+</div>
+
+<section class="method">
+  <div class="method-inner">
+    <h2>The method, reverse-engineered</h2>
+    <p>Your reference images are built from exactly three layers. The soft "pillowy" forms and the grain are
+    independent passes — the grain is applied over the finished gradient, not baked into it.</p>
+
+    <ol class="steps">
+      <li><b>Ground.</b> A near-black canvas. Not pure black — around <code>#060608</code>.</li>
+      <li><b>Form — stacked layers, not one blur.</b> Each shape is its own layer with a
+      <b>soft-but-defined silhouette</b> (edge transition ≈ 0.5–1.5% of the canvas width — look at where a
+      dark fold meets a bright one: the boundary is far crisper than the shading inside either region).
+      Critically, the silhouette is not a clean alpha ramp: <b>noise perturbs the layer's alpha in the
+      edge zone</b>, so each shape <em>dissolves</em> into whatever sits below it — the border is made of
+      speckle, not a smooth fade. The interior is shaded by its gradient fill with <b>hard contrast</b> —
+      a near-white tint toward the light collapsing into a near-black shade of the same hue — plus a
+      bright <b>rim light</b> hugging the lit edge. That contrast is what makes the overlaps read
+      dramatic instead of flat.</li>
+      <li><b>Grain.</b> One Gaussian noise pass over the <em>flattened</em> composite — the grain runs
+      unbroken across every silhouette edge, which is how you can tell it comes last.</li>
+    </ol>
+
+    <h3>What the pixels say</h3>
+    <p>I separated the grain from the base gradient (heavy blur = base, residual = grain) and measured it
+    in both reference images:</p>
+    <table>
+      <tr><th>Property</th><th>Measured</th><th>Meaning</th></tr>
+      <tr><td>amplitude</td><td>σ ≈ 13–18 / 255</td><td>≈ 6% noise — strong, poster-grade grain</td></tr>
+      <tr><td>R·G·B correlation</td><td>0.78 – 0.95</td><td>mostly luminance grain + ~35% color speckle</td></tr>
+      <tr><td>autocorrelation @1px</td><td>0.62 – 0.74</td><td>grain cells ≈ 2 px, not 1-px white noise</td></tr>
+      <tr><td>σ in deep shadows</td><td>≈ 5.5</td><td>grain fades to ~⅓ near black — blacks stay clean</td></tr>
+      <tr><td>excess kurtosis</td><td>+0.7 – +2.9</td><td>heavier tails than pure Gaussian (clipping)</td></tr>
+    </table>
+    <p>The 2-px cell size means the noise was generated at roughly <b>half resolution and upscaled</b>
+    (or grain-blurred ~0.7 px). That single detail is most of the "film" feel — 1-px noise reads as
+    digital static instead.</p>
+
+    <h3>Recipe in Photoshop</h3>
+    <ol class="steps">
+      <li>One blob per layer. Shade each with a high-contrast gradient fill (near-white tint → near-black
+      shade of the same color) and add a light <b>Inner Glow</b> on the lit edge for the rim.</li>
+      <li>Give each layer a <b>layer mask</b>: Gaussian Blur the mask ≈ 8–20 px on a 1500-px canvas, then
+      <b>Add Noise ≈ 20–40% directly on the mask</b>. Noise in the mask is what turns the silhouette into
+      a speckled dissolve instead of a clean fade. Do <em>not</em> merge and blur everything together.</li>
+      <li>Flatten, then: new layer filled 50% gray, blend mode <b>Overlay</b>.</li>
+      <li><b>Add Noise ≈ 12%, Gaussian</b>, monochromatic <em>off</em> for the slight color speckle.</li>
+      <li><b>Gaussian Blur 0.7 px</b> on the noise layer — this creates the 2-px cells.</li>
+      <li>Double-click the layer → <b>Blend If</b>, drag the "Underlying Layer" black slider right (split it with ⌥) so grain fades out of the shadows.</li>
+    </ol>
+
+    <h3>Recipe on the web (SVG filter)</h3>
+    <p>For live use — hero backgrounds, cards — overlay <code>feTurbulence</code> on any CSS gradient:</p>
+    <div class="codewrap"><pre><span class="c">&lt;!-- place over your gradient, mix-blend-mode: overlay; opacity ≈ .5 --&gt;</span>
+&lt;svg&gt;&lt;filter id=<span class="a">"grain"</span>&gt;
+  &lt;feTurbulence type=<span class="a">"fractalNoise"</span> baseFrequency=<span class="a">"0.55"</span> numOctaves=<span class="a">"2"</span>/&gt;
+&lt;/filter&gt;&lt;/svg&gt;
+<span class="c">/* baseFrequency 0.55 ≈ the 2-px grain cell at 1× DPI */</span></pre></div>
+
+    <h3>Recipe in code (what this page runs)</h3>
+    <div class="codewrap"><pre><span class="c">// per pixel, after rendering the blurred gradient base:</span>
+n     = mono + <span class="a">0.35</span> * perChannel          <span class="c">// ~0.85 channel correlation</span>
+atten = clamp(luminance / <span class="a">60</span>, <span class="a">0.25</span>, <span class="a">1</span>)    <span class="c">// protect the shadows</span>
+out   = base + n * <span class="a">σ15</span> * atten             <span class="c">// clip to 0–255</span>
+<span class="c">// mono &amp; perChannel: Gaussian fields generated at ½ res, bilinear-upscaled</span></pre></div>
+
+    <h3>Shaping the forms by hand</h3>
+    <p>Each silhouette is a closed <b>quadratic Bézier spline</b>. The eight handles you drag are the
+    <em>control</em> points — they sit off the curve and pull it toward them; the curve itself passes
+    through the midpoint between each neighbouring pair. That is what keeps every outline continuous and
+    tangent-smooth no matter where you drag: there are no corners to break.</p>
+    <div class="codewrap"><pre><span class="c">// segment i, between control points P[i] and P[i+1]</span>
+start = midpoint(P[i-1], P[i])
+end   = midpoint(P[i],   P[i+1])
+ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
+<span class="c">// tension 1.00 = full Bézier bulge · 0.00 = straight polygon edges</span></pre></div>
+    <p>Geometry is stored <b>normalised</b> — centres as a fraction of the canvas, control points as a
+    fraction of its short side — so a shape you tune at preview size exports pixel-for-pixel identical at
+    3× and survives an aspect change without stretching. <b>Spread</b> stays live on top of that: it moves
+    the generated centre, and your drag is an offset added to it, so the slider keeps working after you
+    have positioned things by hand. <b>Shuffle</b> redraws every shape from a new seed and discards manual
+    edits; <b>reset shape</b> restores just the selected one.</p>
+    <p>The <b>linear gradient fill</b> switch swaps each layer's radial shading for a linear ramp along the
+    light axis. Radial reads as an inflated, pillowy volume; linear reads flatter and more graphic — closer
+    to a folded paper plane than a balloon, and noticeably cleaner when shapes are stretched wide.</p>
+
+    <p>Every slider in the rail maps onto one of these measured numbers, and the defaults <em>are</em> the
+    measurements — so the starting output matches the reference fingerprint. Swap the palette swatches for
+    your brand colors, push the shapes where you want them, and export.</p>
+  </div>
+</section>
+
+<script>
+(function(){
+  'use strict';
+
+  // ---------- utilities ----------
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  function hex2rgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
+  function mix(a,b,t){return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t]}
+  function css(c){return'rgb('+(c[0]|0)+','+(c[1]|0)+','+(c[2]|0)+')'}
+  var WHITE=[255,255,255],BLACK=[0,0,0];
+
+  var MAXB=7;        // shapes kept alive, so lowering "layers" never loses edits
+  var PTS=8;         // control points per silhouette
+  var FASTW=460;     // proxy width used while dragging
+
+  var state={
+    seed:20260804,
+    baseW:1440,
+    light:0,
+    poses:{A:[],B:[]},   // the loop morphs A into B
+    pose:'A',            // which one the editor is currently editing
+    shapes:[],           // === poses[pose]; every editor path still works on this
+    sel:-1,
+    drag:null
+  };
+
+  var $=function(id){return document.getElementById(id)};
+  var view=$('view'), vctx=view.getContext('2d');
+  var ov=$('ov');
+
+  function params(){
+    return{
+      bg:$('bg').value,
+      colors:[$('c0').value,$('c1').value,$('c2').value,$('c3').value],
+      blobs:+$('blobs').value,
+      soft:+$('soft').value,
+      enoise:+$('enoise').value,
+      contrast:+$('contrast').value,
+      rim:+$('rim').value,
+      spread:+$('spread').value,
+      linear:$('linear').checked,
+      tension:+$('tension').value/100,
+      edit:$('edit').checked,
+      amount:+$('amount').value,
+      gsize:+$('gsize').value,
+      chroma:+$('chroma').value/100,
+      shadow:$('shadow').checked,
+      aspect:+$('aspect').value,
+      scale:+$('scale').value
+    };
+  }
+  function previewDims(p){var w=state.baseW;return[w,Math.round(w/p.aspect)]}
+
+  // ---------- shape model ----------
+  // Geometry is normalised and resolution-free: centres are a fraction of the
+  // canvas, control points a fraction of its short side. The same shape therefore
+  // renders identically in the preview, in the drag proxy and at 3x export.
+  function genShapes(seed){
+    var rng=mulberry32(seed);
+    var out={light:rng()*Math.PI*2,list:[]};
+    for(var i=0;i<MAXB;i++){
+      var ux=rng()-0.5, uy=rng()-0.5;          // generated centre, pre-spread
+      var rn=0.30+rng()*0.32;                  // radius, in short-side units
+      var phi=rng()*Math.PI, st=1.25+rng()*1.0;
+      var ax=Math.cos(phi), ay=Math.sin(phi);
+      var pts=[];
+      for(var j=0;j<PTS;j++){
+        var a=j/PTS*Math.PI*2+(rng()-0.5)*0.5;
+        var rr=rn*(0.6+rng()*0.55);
+        var dx=Math.cos(a)*rr, dy=Math.sin(a)*rr;
+        // stretch along a random axis so shapes read as folds rather than eggs
+        var u=(dx*ax+dy*ay)*st, v=(-dx*ay+dy*ax)/Math.sqrt(st);
+        pts.push([u*ax-v*ay, u*ay+v*ax]);
+      }
+      out.list.push({ux:ux,uy:uy,ox:0,oy:0,rn:rn,pts:pts,edgeMul:0.5+rng()*1.5});
+    }
+    return out;
+  }
+  function frame(w,h){return{w:w,h:h,mind:Math.min(w,h)}}
+  function shapeCenter(s,f,sp){
+    return[f.w*(0.5+s.ux*1.1*sp)+s.ox*f.mind, f.h*(0.5+s.uy*1.1*sp)+s.oy*f.mind];
+  }
+  function shapePts(s,f,sp){
+    var c=shapeCenter(s,f,sp),o=[];
+    for(var j=0;j<s.pts.length;j++)o.push([c[0]+s.pts[j][0]*f.mind, c[1]+s.pts[j][1]*f.mind]);
+    return o;
+  }
+
+  // ---------- bezier spline ----------
+  // Control points sit OFF the curve; each segment runs midpoint-to-midpoint with
+  // P[i] as its quadratic control. tension pulls that control back toward the
+  // chord, so 1 = full bulge and 0 = straight edges.
+  function segments(pts,t){
+    var n=pts.length;
+    var start=[(pts[0][0]+pts[n-1][0])/2,(pts[0][1]+pts[n-1][1])/2];
+    var segs=[],prev=start;
+    for(var i=0;i<n;i++){
+      var p=pts[i], q=pts[(i+1)%n];
+      var end=[(p[0]+q[0])/2,(p[1]+q[1])/2];
+      var mx=(prev[0]+end[0])/2, my=(prev[1]+end[1])/2;
+      segs.push([mx+(p[0]-mx)*t, my+(p[1]-my)*t, end[0], end[1]]);
+      prev=end;
+    }
+    return{start:start,segs:segs};
+  }
+  function blobPath(ctx,pts,t){
+    var s=segments(pts,t);
+    ctx.beginPath();
+    ctx.moveTo(s.start[0],s.start[1]);
+    for(var i=0;i<s.segs.length;i++){
+      var g=s.segs[i];
+      ctx.quadraticCurveTo(g[0],g[1],g[2],g[3]);
+    }
+    ctx.closePath();
+  }
+  function blobD(pts,t){
+    var s=segments(pts,t),i,g;
+    var d='M'+s.start[0].toFixed(1)+' '+s.start[1].toFixed(1);
+    for(i=0;i<s.segs.length;i++){
+      g=s.segs[i];
+      d+='Q'+g[0].toFixed(1)+' '+g[1].toFixed(1)+' '+g[2].toFixed(1)+' '+g[3].toFixed(1);
+    }
+    return d+'Z';
+  }
+
+  // ---------- base gradient ----------
+  function renderBase(w,h,p,fast,shapes){
+    shapes=shapes||state.shapes;
+    var c=document.createElement('canvas');c.width=w;c.height=h;
+    var ctx=c.getContext('2d');
+    ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);
+
+    var f=frame(w,h), sp=p.spread/100, t=p.tension;
+    var lx=Math.cos(state.light), ly=Math.sin(state.light);   // global light direction
+
+    // each shape is its own layer: gradient-shaded interior, rim light on the
+    // lit edge, then composited with a small silhouette blur — back to front
+    for(var i=0;i<p.blobs;i++){
+      var s=shapes[i];
+      var col=hex2rgb(p.colors[i%p.colors.length]);
+      var ctr=shapeCenter(s,f,sp), cx=ctr[0], cy=ctr[1];
+      var r=s.rn*f.mind;
+      var pts=shapePts(s,f,sp);
+
+      var layer=document.createElement('canvas');layer.width=w;layer.height=h;
+      var lc=layer.getContext('2d');
+
+      // interior shading: hard contrast between the lit tint and the deep shade
+      var ct=p.contrast/100, g;
+      if(p.linear){
+        g=lc.createLinearGradient(cx-lx*r*1.25,cy-ly*r*1.25, cx+lx*r*1.25,cy+ly*r*1.25);
+        g.addColorStop(0,css(mix(col,WHITE,0.35+0.4*ct)));
+        g.addColorStop(0.45,css(col));
+        g.addColorStop(1,css(mix(col,BLACK,0.55+0.38*ct)));
+      }else{
+        g=lc.createRadialGradient(cx-lx*r*0.8,cy-ly*r*0.8,r*0.05, cx,cy,r*1.7);
+        g.addColorStop(0,css(mix(col,WHITE,0.35+0.4*ct)));
+        g.addColorStop(0.42,css(col));
+        g.addColorStop(1,css(mix(col,BLACK,0.55+0.38*ct)));
+      }
+      lc.fillStyle=g;
+      lc.fillRect(0,0,w,h);
+
+      // silhouette: blurred ramp whose alpha is perturbed by noise, so the
+      // shape dissolves into whatever sits below it instead of fading cleanly
+      var edge=p.soft/100*w*s.edgeMul;
+      var mask=makeMask(w,h,pts,t,edge,fast?0:p.enoise/100,
+                        Math.max(1,Math.round(2*w/1440)),
+                        state.seed+31*i+11);
+      lc.globalCompositeOperation='destination-in';
+      lc.drawImage(mask,0,0);
+
+      // rim light: bright stroke clipped to the shape, faded toward the dark side
+      if(p.rim>0){
+        var rg=lc.createLinearGradient(cx-lx*r*1.2,cy-ly*r*1.2, cx+lx*r*1.2,cy+ly*r*1.2);
+        var rc=mix(col,WHITE,0.8);
+        rg.addColorStop(0,'rgba('+(rc[0]|0)+','+(rc[1]|0)+','+(rc[2]|0)+','+(p.rim/100)+')');
+        rg.addColorStop(0.7,'rgba('+(rc[0]|0)+','+(rc[1]|0)+','+(rc[2]|0)+',0)');
+        lc.save();
+        lc.globalCompositeOperation='source-atop';
+        lc.filter='blur('+(r*0.10)+'px)';
+        lc.strokeStyle=rg;
+        lc.lineWidth=r*0.22;
+        blobPath(lc,pts,t);
+        lc.stroke();
+        lc.restore();
+      }
+
+      ctx.drawImage(layer,0,0);
+    }
+    return c;
+  }
+
+  // silhouette mask: the blob is drawn white on a TRANSPARENT canvas, so the blur
+  // hands us the alpha ramp directly. Noise is then pushed into that alpha, scaled
+  // by v·(255−v) so it bites hardest mid-ramp and leaves interior and exterior
+  // untouched. With dissolve at 0 there is no per-pixel work at all.
+  function makeMask(w,h,pts,t,edgeBlur,noiseK,cell,noiseSeed){
+    var m=document.createElement('canvas');m.width=w;m.height=h;
+    var mc=m.getContext('2d');
+    mc.filter='blur('+edgeBlur+'px)';
+    mc.fillStyle='#fff';
+    blobPath(mc,pts,t);
+    mc.fill();
+    mc.filter='none';
+    if(noiseK>0){
+      var id=mc.getImageData(0,0,w,h),d=id.data;
+      var nd=maskField(w,h,cell,noiseSeed).data;
+      for(var i=0;i<d.length;i+=4){
+        var v=d[i+3];
+        var ramp=v*(255-v)/16256;               // 0 at extremes, ~1 mid-ramp
+        var a=v+(nd[i]-128)*noiseK*3.5*ramp;
+        d[i+3]=a<0?0:a>255?255:a;
+      }
+      mc.putImageData(id,0,0);
+    }
+    return m;
+  }
+
+  // ---------- grain ----------
+  function noiseCanvas(w,h,rng,mono){
+    var c=document.createElement('canvas');c.width=w;c.height=h;
+    var ctx=c.getContext('2d');
+    var id=ctx.createImageData(w,h),d=id.data;
+    for(var i=0;i<d.length;i+=4){
+      if(mono){
+        var g=128+45*gauss(rng); g=g<0?0:g>255?255:g;
+        d[i]=d[i+1]=d[i+2]=g;
+      }else{
+        for(var ch=0;ch<3;ch++){
+          var v=128+45*gauss(rng); d[i+ch]=v<0?0:v>255?255:v;
+        }
+      }
+      d[i+3]=255;
+    }
+    ctx.putImageData(id,0,0);
+    return c;
+  }
+  function gauss(rng){
+    var u=1-rng(),v=rng();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+  function upscaled(src,w,h){
+    var c=document.createElement('canvas');c.width=w;c.height=h;
+    var ctx=c.getContext('2d');
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+    ctx.drawImage(src,0,0,w,h);
+    return ctx.getImageData(0,0,w,h);
+  }
+  // ---------- noise cache ----------
+  // Every noise field is seeded, so it is bit-identical on every render — only the
+  // canvas size varies. Generating them is the dominant cost of a frame (a Gaussian
+  // sample per pixel, with a log and a cos), and regenerating them per frame is what
+  // would make animation unaffordable. Cache by size+seed and the cost vanishes for
+  // repeated renders at one size. The grain pair stays on ONE rng stream, exactly as
+  // before, so cached output is identical to uncached.
+  var noiseCache={}, noiseBytes=0;
+  var NOISE_BUDGET=128*1024*1024;   // total held
+  var NOISE_MAXPX=4e6;              // don't cache export-sized fields at all
+
+  function cacheable(w,h){return w*h<=NOISE_MAXPX}
+  function noteBytes(n){
+    noiseBytes+=n;
+    if(noiseBytes>NOISE_BUDGET)flushNoise();
+  }
+  function flushNoise(){noiseCache={};noiseBytes=0}
+
+  function maskField(w,h,cell,seed){
+    var k='m|'+w+'x'+h+'|'+cell+'|'+seed;
+    var hit=noiseCache[k];
+    if(hit)return hit;
+    var f=upscaled(noiseCanvas(Math.ceil(w/cell),Math.ceil(h/cell),mulberry32(seed),true),w,h);
+    if(cacheable(w,h)){noiseCache[k]=f;noteBytes(f.data.length)}
+    return f;
+  }
+  function grainFields(w,h,gsize,seed){
+    var k='g|'+w+'x'+h+'|'+gsize+'|'+seed;
+    var hit=noiseCache[k];
+    if(hit)return hit;
+    var rng=mulberry32(seed);                       // one stream, mono then chroma
+    var sw=Math.ceil(w/gsize),sh=Math.ceil(h/gsize);
+    var f={mono:upscaled(noiseCanvas(sw,sh,rng,true),w,h).data,
+           chro:upscaled(noiseCanvas(sw,sh,rng,false),w,h).data};
+    if(cacheable(w,h)){noiseCache[k]=f;noteBytes(f.mono.length+f.chro.length)}
+    return f;
+  }
+
+  // std shrink factor after bilinear upscale by g
+  var SHRINK={1:1,2:0.72,3:0.62,4:0.55,6:0.48,8:0.44,12:0.4};
+
+  function applyGrain(base,p,gsize){
+    var w=base.width,h=base.height;
+    var ctx=base.getContext('2d');
+    var img=ctx.getImageData(0,0,w,h),d=img.data;
+
+    var fields=grainFields(w,h,gsize,state.seed+7);
+    var mono=fields.mono, chro=fields.chro;
+
+    var shrink=SHRINK[gsize]||0.5;
+    var norm=1/Math.sqrt(1+p.chroma*p.chroma);
+    var gain=p.amount/(45*shrink)*norm;
+    var useShadow=p.shadow;
+
+    for(var i=0;i<d.length;i+=4){
+      var lum=(d[i]+d[i+1]+d[i+2])/3;
+      var att=1;
+      if(useShadow){att=lum/60;att=att<0.25?0.25:att>1?1:att;}
+      var m=mono[i]-128, k=gain*att;
+      for(var ch=0;ch<3;ch++){
+        var v=d[i+ch]+(m+p.chroma*(chro[i+ch]-128))*k;
+        d[i+ch]=v<0?0:v>255?255:v;
+      }
+    }
+    ctx.putImageData(img,0,0);
+    return base;
+  }
+
+  // ---------- pipeline ----------
+  var cachedBase=null;
+
+  function fullRender(){
+    var p=params();
+    if(state.sel>=p.blobs)state.sel=-1;
+    var d=previewDims(p);
+    cachedBase=renderBase(d[0],d[1],p,false);
+    compose(p);
+    syncChips(p);
+    syncTrackFrom();
+    syncOverlay(p);
+    $('resetblob').disabled=state.sel<0;
+    $('dims').textContent=d[0]+' × '+d[1]+' preview · export '+(d[0]*p.scale)+' × '+(d[1]*p.scale);
+  }
+  function compose(p){
+    p=p||params();
+    var w=cachedBase.width,h=cachedBase.height;
+    view.width=w;view.height=h;
+    vctx.drawImage(cachedBase,0,0);
+    if(p.amount>0){
+      var tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
+      tmp.getContext('2d').drawImage(cachedBase,0,0);
+      applyGrain(tmp,p,p.gsize);
+      vctx.drawImage(tmp,0,0);
+    }
+  }
+  // while dragging: a small proxy with the per-pixel passes switched off, upscaled
+  // into the preview. Full quality returns on pointer-up.
+  function fastRender(){
+    var p=params();
+    var d=previewDims(p);
+    var fw=FASTW, fh=Math.max(1,Math.round(fw/p.aspect));
+    var small=renderBase(fw,fh,p,true);
+    view.width=d[0];view.height=d[1];
+    vctx.imageSmoothingEnabled=true;vctx.imageSmoothingQuality='medium';
+    vctx.drawImage(small,0,0,d[0],d[1]);
+    syncOverlay(p);
+  }
+  var rafId=0;
+  function scheduleFast(){
+    if(rafId)return;
+    rafId=requestAnimationFrame(function(){rafId=0;fastRender()});
+  }
+  function cancelFast(){if(rafId){cancelAnimationFrame(rafId);rafId=0}}
+
+  // ---------- editor overlay ----------
+  var SVGNS='http://www.w3.org/2000/svg';
+  function svgEl(tag,attrs){
+    var n=document.createElementNS(SVGNS,tag);
+    for(var k in attrs)if(Object.prototype.hasOwnProperty.call(attrs,k))n.setAttribute(k,attrs[k]);
+    return n;
+  }
+  var gHit=null,gEdit=null,ovBg=null,hitKey=-1,editKey=-2;
+  var ovHits=[],ovHandles=[],ovSpokes=[],ovOutline=null,ovHalo=null,ovCtr=null;
+  // Gutter width as a fraction of the FRAME. The overlay spans frame + gutter while
+  // the canvas spans only the frame, so the viewBox margin has to be q/(1-2q) of the
+  // artboard for the two to stay in register. Must match .stage-frame's padding.
+  var OVGUTTER=0.064;
+
+  function ovInit(){
+    ovBg=svgEl('rect',{fill:'transparent','class':'catch'});
+    ovBg.addEventListener('pointerdown',function(){select(-1)});
+    ov.appendChild(ovBg);
+    gHit=svgEl('g',{});ov.appendChild(gHit);
+    gEdit=svgEl('g',{});ov.appendChild(gEdit);
+  }
+  function buildHits(p){
+    while(gHit.firstChild)gHit.removeChild(gHit.firstChild);
+    ovHits=[];
+    for(var i=0;i<p.blobs;i++){
+      var path=svgEl('path',{'class':'hit',fill:'transparent'});
+      bindBody(path,i);
+      gHit.appendChild(path);
+      ovHits.push(path);
+    }
+  }
+  function buildEdit(p){
+    while(gEdit.firstChild)gEdit.removeChild(gEdit.firstChild);
+    ovHandles=[];ovSpokes=[];ovOutline=null;ovHalo=null;ovCtr=null;
+    if(state.sel<0||state.sel>=p.blobs)return;
+    // dark halo under a light dash, so the outline holds up over both a blown-out
+    // highlight and the near-black ground
+    ovHalo=svgEl('path',{'class':'halo',stroke:'#000','stroke-opacity':'.5'});
+    gEdit.appendChild(ovHalo);
+    ovOutline=svgEl('path',{'class':'outline',stroke:'#f2c079','stroke-opacity':'.95','stroke-dasharray':'10 9'});
+    gEdit.appendChild(ovOutline);
+    var j;
+    // spokes tie each control point back to its shape — they can sit well outside
+    // the silhouette, so without these it is not obvious what a handle belongs to
+    for(j=0;j<PTS;j++){
+      var sp2=svgEl('line',{'class':'spoke',stroke:'#e0a458','stroke-opacity':'.32'});
+      gEdit.appendChild(sp2);
+      ovSpokes.push(sp2);
+    }
+    ovCtr=svgEl('rect',{'class':'ctr',fill:'#e0a458',stroke:'#141419',tabindex:'0',role:'button',
+                        'aria-label':'Move shape '+(state.sel+1)});
+    bindBody(ovCtr,state.sel);
+    bindKeys(ovCtr,state.sel,-1);
+    gEdit.appendChild(ovCtr);
+    for(j=0;j<PTS;j++){
+      var h=svgEl('circle',{'class':'pt',fill:'#fff',stroke:'#141419',tabindex:'0',role:'button',
+                            'aria-label':'Control point '+(j+1)+' of '+PTS+' on shape '+(state.sel+1)});
+      bindPoint(h,state.sel,j);
+      bindKeys(h,state.sel,j);
+      gEdit.appendChild(h);
+      ovHandles.push(h);
+    }
+  }
+  function updateOverlay(p){
+    var d=previewDims(p), f=frame(d[0],d[1]), sp=p.spread/100, t=p.tension;
+    // the viewBox is inflated by the gutter so handles off the artboard stay
+    // visible and grabbable; the canvas underneath is unaffected
+    var m=d[0]*OVGUTTER/(1-2*OVGUTTER);
+    ov.setAttribute('viewBox',(-m).toFixed(2)+' '+(-m).toFixed(2)+' '+(d[0]+2*m).toFixed(2)+' '+(d[1]+2*m).toFixed(2));
+    ovBg.setAttribute('x',-m);ovBg.setAttribute('y',-m);
+    ovBg.setAttribute('width',d[0]+2*m);ovBg.setAttribute('height',d[1]+2*m);
+
+    var i;
+    for(i=0;i<ovHits.length;i++){
+      ovHits[i].setAttribute('d',blobD(shapePts(state.shapes[i],f,sp),t));
+      ovHits[i].setAttribute('class',i===state.sel?'hit on':'hit');
+    }
+    if(!ovOutline)return;
+    var s=state.shapes[state.sel];
+    var pts=shapePts(s,f,sp), c=shapeCenter(s,f,sp);
+    var hr=d[0]/150, sw=d[0]/700, dd=blobD(pts,t);
+    ovHalo.setAttribute('d',dd);ovHalo.setAttribute('stroke-width',sw*3.2);
+    ovOutline.setAttribute('d',dd);ovOutline.setAttribute('stroke-width',sw*1.25);
+    ovCtr.setAttribute('x',c[0]-hr*0.82);ovCtr.setAttribute('y',c[1]-hr*0.82);
+    ovCtr.setAttribute('width',hr*1.64);ovCtr.setAttribute('height',hr*1.64);
+    ovCtr.setAttribute('transform','rotate(45 '+c[0]+' '+c[1]+')');
+    ovCtr.setAttribute('stroke-width',sw*1.6);
+    for(i=0;i<ovHandles.length;i++){
+      ovSpokes[i].setAttribute('x1',c[0]);ovSpokes[i].setAttribute('y1',c[1]);
+      ovSpokes[i].setAttribute('x2',pts[i][0]);ovSpokes[i].setAttribute('y2',pts[i][1]);
+      ovSpokes[i].setAttribute('stroke-width',sw*0.9);
+      ovHandles[i].setAttribute('cx',pts[i][0]);
+      ovHandles[i].setAttribute('cy',pts[i][1]);
+      ovHandles[i].setAttribute('r',hr);
+      ovHandles[i].setAttribute('stroke-width',sw*1.7);
+    }
+  }
+  function syncOverlay(p){
+    p=p||params();
+    if(!p.edit){ov.setAttribute('hidden','');return}
+    ov.removeAttribute('hidden');
+    if(!gHit)ovInit();
+    if(hitKey!==p.blobs){hitKey=p.blobs;buildHits(p)}
+    if(editKey!==state.sel){editKey=state.sel;buildEdit(p)}
+    updateOverlay(p);
+  }
+
+  function toCanvas(e){
+    var m=ov.getScreenCTM();
+    if(!m)return[0,0];
+    var q=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());
+    return[q.x,q.y];
+  }
+  function bindBody(node,i){
+    node.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      select(i);                       // rebuilds gEdit only — this node survives
+      startDrag(e,node,i,-1);
+    });
+  }
+  function bindPoint(node,i,j){
+    node.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      startDrag(e,node,i,j);
+    });
+  }
+  function startDrag(e,node,i,j){
+    var d=previewDims(params()), f=frame(d[0],d[1]);
+    var q=toCanvas(e), s=state.shapes[i];
+    try{node.setPointerCapture(e.pointerId)}catch(err){}
+    state.drag={node:node,i:i,j:j,pid:e.pointerId,x0:q[0],y0:q[1],mind:f.mind,
+                ox:s.ox,oy:s.oy,
+                px:j>=0?s.pts[j][0]:0, py:j>=0?s.pts[j][1]:0};
+    node.addEventListener('pointermove',onMove);
+    node.addEventListener('pointerup',endDrag);
+    node.addEventListener('pointercancel',endDrag);
+  }
+  function onMove(e){
+    var g=state.drag;
+    if(!g||e.pointerId!==g.pid)return;
+    var q=toCanvas(e);
+    var dx=(q[0]-g.x0)/g.mind, dy=(q[1]-g.y0)/g.mind;
+    var s=state.shapes[g.i];
+    if(g.j<0){s.ox=g.ox+dx;s.oy=g.oy+dy}
+    else{s.pts[g.j][0]=g.px+dx;s.pts[g.j][1]=g.py+dy}
+    scheduleFast();
+  }
+  function endDrag(){
+    var g=state.drag;
+    if(!g)return;
+    g.node.removeEventListener('pointermove',onMove);
+    g.node.removeEventListener('pointerup',endDrag);
+    g.node.removeEventListener('pointercancel',endDrag);
+    try{g.node.releasePointerCapture(g.pid)}catch(err){}
+    state.drag=null;
+    cancelFast();
+    invalidate();               // the pose changed, so any bake is stale
+    fullRender();
+  }
+  var kbT=null;
+  function bindKeys(node,i,j){
+    node.addEventListener('keydown',function(e){
+      var dx=0,dy=0;
+      if(e.key==='ArrowLeft')dx=-1;
+      else if(e.key==='ArrowRight')dx=1;
+      else if(e.key==='ArrowUp')dy=-1;
+      else if(e.key==='ArrowDown')dy=1;
+      else return;
+      e.preventDefault();
+      var d=previewDims(params());
+      var step=(e.shiftKey?12:3)/Math.min(d[0],d[1]);
+      var s=state.shapes[i];
+      if(j<0){s.ox+=dx*step;s.oy+=dy*step}
+      else{s.pts[j][0]+=dx*step;s.pts[j][1]+=dy*step}
+      scheduleFast();
+      clearTimeout(kbT);
+      kbT=setTimeout(function(){
+        var focus=document.activeElement;
+        invalidate();
+        fullRender();
+        if(focus&&focus.isConnected)focus.focus();
+      },260);
+    });
+  }
+  function select(i){
+    if(state.sel===i)return;
+    state.sel=i;
+    syncOverlay();
+    syncChips();
+    $('resetblob').disabled=i<0;
+  }
+
+  // ---------- shape chips ----------
+  var chipKey='';
+  function syncChips(p){
+    p=p||params();
+    var key=p.blobs+'|'+state.sel+'|'+p.colors.join('');
+    if(key===chipKey)return;
+    chipKey=key;
+    var box=$('chips');
+    while(box.firstChild)box.removeChild(box.firstChild);
+    for(var i=0;i<p.blobs;i++){
+      box.appendChild(makeChip(i,p.colors[i%p.colors.length]));
+    }
+  }
+  function makeChip(i,color){
+    var b=document.createElement('button');
+    b.type='button';b.className='chip';
+    b.setAttribute('aria-pressed',String(state.sel===i));
+    var dot=document.createElement('span');
+    dot.className='dot';dot.style.background=color;
+    b.appendChild(dot);
+    b.appendChild(document.createTextNode('shape '+(i+1)));
+    b.addEventListener('click',function(){select(state.sel===i?-1:i)});
+    return b;
+  }
+
+  // ---------- animation ----------
+  // One shared loop. Each track moves a property from the rail's value (A) to its
+  // own target (B) during a slice of the loop, through an easing curve. The global
+  // phase ping-pongs by default, so windows retrace on the way back and the loop
+  // seams with no jump.
+  var EASINGS={
+    'linear':      function(t){return t},
+    'ease-in':     function(t){return t*t},
+    'ease-out':    function(t){return 1-(1-t)*(1-t)},
+    'ease-in-out': function(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2},
+    'cubic-in':    function(t){return t*t*t},
+    'cubic-out':   function(t){return 1-Math.pow(1-t,3)},
+    'cubic-in-out':function(t){return t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2},
+    'expo-out':    function(t){return t>=1?1:1-Math.pow(2,-10*t)},
+    'back-out':    function(t){var c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)},
+    'elastic-out': function(t){var c4=2*Math.PI/3;return t<=0?0:t>=1?1:Math.pow(2,-10*t)*Math.sin((t*10-0.75)*c4)+1},
+    'bounce-out':  function(t){var n1=7.5625,d1=2.75;
+                     if(t<1/d1)return n1*t*t;
+                     if(t<2/d1)return n1*(t-=1.5/d1)*t+0.75;
+                     if(t<2.5/d1)return n1*(t-=2.25/d1)*t+0.9375;
+                     return n1*(t-=2.625/d1)*t+0.984375},
+    'hold':        function(t){return t<1?0:1}
+  };
+  var EASE_NAMES=['linear','ease-in','ease-out','ease-in-out','cubic-in','cubic-out',
+                  'cubic-in-out','expo-out','back-out','elastic-out','bounce-out','hold'];
+
+  // Colour has to travel through linear light. A straight sRGB lerp dips in
+  // brightness through the middle and turns a magenta→orange sweep muddy.
+  function srgb2lin(c){c/=255;return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4)}
+  function lin2srgb(c){return 255*(c<=0.0031308?c*12.92:1.055*Math.pow(c,1/2.4)-0.055)}
+  function hex2(n){n=Math.round(n);n=n<0?0:n>255?255:n;return(n<16?'0':'')+n.toString(16)}
+  function lerpColor(a,b,t){
+    var A=hex2rgb(a),B=hex2rgb(b),o='#';
+    for(var i=0;i<3;i++){
+      var la=srgb2lin(A[i]), lb=srgb2lin(B[i]);
+      o+=hex2(lin2srgb(la+(lb-la)*t));
+    }
+    return o;
+  }
+
+  // Everything animatable, and how a slider-unit value lands in the params object.
+  // Layers, aspect and resolution are deliberately absent: the first is your call,
+  // the other two resize the canvas mid-loop and would break the recording.
+  var ANIM_PROPS=[
+    {id:'bg',      label:'background',    kind:'color', set:function(p,v){p.bg=v}},
+    {id:'c0',      label:'colour 1',      kind:'color', set:function(p,v){p.colors[0]=v}},
+    {id:'c1',      label:'colour 2',      kind:'color', set:function(p,v){p.colors[1]=v}},
+    {id:'c2',      label:'colour 3',      kind:'color', set:function(p,v){p.colors[2]=v}},
+    {id:'c3',      label:'colour 4',      kind:'color', set:function(p,v){p.colors[3]=v}},
+    {id:'soft',    label:'edge blur',     kind:'num',   set:function(p,v){p.soft=v}},
+    {id:'enoise',  label:'edge dissolve', kind:'num',   set:function(p,v){p.enoise=v}},
+    {id:'contrast',label:'contrast',      kind:'num',   set:function(p,v){p.contrast=v}},
+    {id:'rim',     label:'rim light',     kind:'num',   set:function(p,v){p.rim=v}},
+    {id:'spread',  label:'spread',        kind:'num',   set:function(p,v){p.spread=v}},
+    {id:'tension', label:'curve tension', kind:'num',   set:function(p,v){p.tension=v/100}},
+    {id:'amount',  label:'grain amount',  kind:'num',   set:function(p,v){p.amount=v}},
+    {id:'gsize',   label:'grain size',    kind:'num',   set:function(p,v){p.gsize=Math.max(1,Math.round(v))}},
+    {id:'chroma',  label:'chroma',        kind:'num',   set:function(p,v){p.chroma=v/100}},
+    {id:'shapes',  label:'shape pose',    kind:'pose'}
+  ];
+  function propDef(id){
+    for(var i=0;i<ANIM_PROPS.length;i++)if(ANIM_PROPS[i].id===id)return ANIM_PROPS[i];
+    return null;
+  }
+
+  var anim={
+    loop:6,fps:24,mode:'pingpong',bakeW:720,vq:1.2,
+    tracks:[],rows:[],
+    frames:null,fw:0,fh:0,
+    playing:false,baking:false,recording:false,
+    raf:0,t0:0
+  };
+
+  function mnote(msg,kind){
+    var n=$('motionnote');
+    n.textContent=msg||'';
+    n.className='motionnote'+(kind?' '+kind:'');
+  }
+  function readGlobals(){
+    anim.loop=+$('loop').value;
+    anim.fps=+$('fps').value;
+    anim.mode=$('mode').value;
+    anim.bakeW=+$('bakew').value;
+    anim.vq=+$('vq').value;
+  }
+  function trackFor(id){
+    for(var i=0;i<anim.tracks.length;i++)if(anim.tracks[i].id===id)return anim.tracks[i];
+    return null;
+  }
+
+  function triangle(u){return anim.mode==='pingpong'?(u<0.5?u*2:2-2*u):u}
+  function trackK(tr,phase){
+    var span=tr.e-tr.s, local;
+    if(span<=0)local=phase>=tr.e?1:0;
+    else local=(phase-tr.s)/span;
+    local=local<0?0:local>1?1:local;
+    return (EASINGS[tr.ease]||EASINGS.linear)(local);
+  }
+
+  function animParams(phase){
+    var p=params();
+    for(var i=0;i<anim.tracks.length;i++){
+      var tr=anim.tracks[i];
+      if(tr.id==='shapes')continue;
+      var def=propDef(tr.id);
+      if(!def)continue;
+      var from=$(tr.id).value, k=trackK(tr,phase);
+      if(def.kind==='color')def.set(p,lerpColor(from,tr.to,k));
+      else def.set(p,(+from)+((+tr.to)-(+from))*k);
+    }
+    return p;
+  }
+  function clonePose(list){
+    var out=[];
+    for(var i=0;i<list.length;i++){
+      var s=list[i],pts=[];
+      for(var j=0;j<s.pts.length;j++)pts.push([s.pts[j][0],s.pts[j][1]]);
+      out.push({ux:s.ux,uy:s.uy,ox:s.ox,oy:s.oy,rn:s.rn,edgeMul:s.edgeMul,pts:pts});
+    }
+    return out;
+  }
+  function morphPoses(A,B,k){
+    var out=[];
+    for(var i=0;i<A.length;i++){
+      var a=A[i],b=B[i],pts=[];
+      for(var j=0;j<a.pts.length;j++)
+        pts.push([a.pts[j][0]+(b.pts[j][0]-a.pts[j][0])*k,
+                  a.pts[j][1]+(b.pts[j][1]-a.pts[j][1])*k]);
+      out.push({ux:a.ux+(b.ux-a.ux)*k, uy:a.uy+(b.uy-a.uy)*k,
+                ox:a.ox+(b.ox-a.ox)*k, oy:a.oy+(b.oy-a.oy)*k,
+                rn:a.rn+(b.rn-a.rn)*k, edgeMul:a.edgeMul+(b.edgeMul-a.edgeMul)*k,
+                pts:pts});
+    }
+    return out;
+  }
+  function animShapes(phase){
+    var tr=trackFor('shapes');
+    if(!tr)return state.shapes;
+    var k=trackK(tr,phase);
+    if(k<=0)return state.poses.A;
+    if(k>=1)return state.poses.B;
+    return morphPoses(state.poses.A,state.poses.B,k);
+  }
+  function renderFrame(phase,w,h,fast){
+    var p=animParams(phase);
+    var c=renderBase(w,h,p,fast,animShapes(phase));
+    // keep the grain cell the same relative size as in the preview
+    if(!fast&&p.amount>0)applyGrain(c,p,Math.max(1,Math.round(p.gsize*w/state.baseW)));
+    return c;
+  }
+
+  // ---------- bake ----------
+  // Driving the pipeline at 24fps is not affordable; rendering the loop once into
+  // bitmaps is. Ping-pong means the back half is the front half reversed, so only
+  // half the frames are unique.
+  function bakeCount(){
+    var total=Math.max(2,Math.round(anim.loop*anim.fps));
+    return anim.mode==='pingpong'?Math.floor(total/2)+1:total;
+  }
+  function bakePhase(i,U){return anim.mode==='pingpong'?(U>1?i/(U-1):0):i/U}
+  function disposeFrames(){
+    if(anim.frames)for(var i=0;i<anim.frames.length;i++)
+      if(anim.frames[i]&&anim.frames[i].close)anim.frames[i].close();
+    anim.frames=null;
+  }
+  function invalidate(){
+    if(anim.playing)stopPlay();
+    disposeFrames();
+  }
+  function bake(){
+    if(anim.baking)return Promise.resolve();
+    if(!anim.tracks.length){
+      mnote('Nothing is animated yet — add a property below.','err');
+      return Promise.resolve();
+    }
+    anim.baking=true;
+    disposeFrames();
+    readGlobals();
+    var p0=params();
+    var w=anim.bakeW, h=Math.max(2,Math.round(w/p0.aspect));
+    var U=bakeCount(), frames=new Array(U);
+    var prog=$('bakeprog'), started=performance.now();
+    anim.fw=w;anim.fh=h;
+    prog.hidden=false;
+    function step(i){
+      if(i>=U){
+        anim.frames=frames;anim.baking=false;
+        prog.hidden=true;
+        mnote('Baked '+U+' frames at '+w+' × '+h+' in '+
+              ((performance.now()-started)/1000).toFixed(1)+'s.','ok');
+        return;
+      }
+      var c=renderFrame(bakePhase(i,U),w,h,false);
+      return createImageBitmap(c).then(function(bmp){
+        frames[i]=bmp;
+        prog.firstChild.style.width=((i+1)/U*100).toFixed(1)+'%';
+        mnote('Baking frame '+(i+1)+' of '+U+' …');
+        return paint().then(function(){return step(i+1)});
+      });
+    }
+    return Promise.resolve().then(function(){return step(0)}).catch(function(e){
+      anim.baking=false;prog.hidden=true;
+      mnote('Bake failed: '+(e&&e.message?e.message:e),'err');
+    });
+  }
+
+  // ---------- playback ----------
+  function frameAt(u){
+    if(!anim.frames||!anim.frames.length)return null;
+    var U=anim.frames.length;
+    var idx=anim.mode==='pingpong'
+      ? Math.round(triangle(u)*(U-1))
+      : Math.floor(u*U);
+    return anim.frames[Math.max(0,Math.min(U-1,idx))];
+  }
+  function drawFrame(u){
+    var bmp=frameAt(u);
+    if(!bmp)return;
+    if(view.width!==anim.fw||view.height!==anim.fh){view.width=anim.fw;view.height=anim.fh}
+    vctx.drawImage(bmp,0,0);
+  }
+  function setScrubUI(u){
+    $('scrub').value=Math.round(u*1000);
+    $('scrub-v').textContent=u.toFixed(3);
+  }
+  // rAF is the right clock for playback, but there are contexts — embedded frames,
+  // occluded windows, headless — where it never fires at all. If the first frame
+  // never lands, fall back to a timer, so play cannot silently do nothing and a
+  // recording cannot hang half-written. Returns its own stop function.
+  function startClock(onFrame){
+    var stopped=false,fired=false,raf=0,iv=0,probe=0;
+    function frame(ts){
+      if(stopped)return;
+      fired=true;
+      onFrame(typeof ts==='number'?ts:performance.now());
+      if(!stopped)raf=requestAnimationFrame(frame);
+    }
+    raf=requestAnimationFrame(frame);
+    probe=setTimeout(function(){
+      if(stopped||fired)return;
+      if(raf)cancelAnimationFrame(raf);
+      raf=0;
+      iv=setInterval(function(){
+        if(!stopped)onFrame(performance.now());
+      },Math.max(8,Math.round(1000/anim.fps)));
+    },400);
+    return function(){
+      stopped=true;
+      clearTimeout(probe);
+      if(raf)cancelAnimationFrame(raf);
+      if(iv)clearInterval(iv);
+      raf=0;iv=0;
+    };
+  }
+  function startPlay(){
+    anim.playing=true;anim.t0=0;
+    ov.setAttribute('hidden','');           // handles would lie while shapes morph
+    $('playbtn').textContent='❚❚ pause';
+    anim.stopClock=startClock(function(ts){
+      if(!anim.t0)anim.t0=ts;
+      var u=(((ts-anim.t0)/1000)/anim.loop)%1;
+      drawFrame(u);
+      setScrubUI(u);
+    });
+  }
+  function stopPlay(){
+    if(!anim.playing)return;
+    anim.playing=false;
+    if(anim.stopClock)anim.stopClock();
+    anim.stopClock=null;
+    $('playbtn').textContent='▶ play';
+    fullRender();
+  }
+  function togglePlay(){
+    if(anim.playing){stopPlay();return Promise.resolve()}
+    var pre=anim.frames?Promise.resolve():bake();
+    return Promise.resolve(pre).then(function(){
+      if(anim.frames&&anim.frames.length)startPlay();
+    });
+  }
+
+  // ---------- scrub ----------
+  function scrubTo(fast){
+    var u=+$('scrub').value/1000;
+    $('scrub-v').textContent=u.toFixed(3);
+    if(!anim.tracks.length||u===0){fullRender();return}
+    var p0=params(), d=previewDims(p0), ph=triangle(u);
+    if(fast){
+      var fw=FASTW, fh=Math.max(1,Math.round(fw/p0.aspect));
+      var small=renderFrame(ph,fw,fh,true);
+      view.width=d[0];view.height=d[1];
+      vctx.imageSmoothingEnabled=true;vctx.imageSmoothingQuality='medium';
+      vctx.drawImage(small,0,0,d[0],d[1]);
+    }else{
+      var c=renderFrame(ph,d[0],d[1],false);
+      view.width=d[0];view.height=d[1];
+      vctx.drawImage(c,0,0);
+    }
+    syncOverlay(p0);
+  }
+
+  // ---------- record ----------
+  function pickMime(){
+    if(!window.MediaRecorder)return '';
+    var opts=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+    for(var i=0;i<opts.length;i++)
+      if(MediaRecorder.isTypeSupported(opts[i]))return opts[i];
+    return '';
+  }
+  var videoUrl=null;
+  function showVideoFallback(blob){
+    if(videoUrl)URL.revokeObjectURL(videoUrl);
+    videoUrl=URL.createObjectURL(blob);
+    var v=$('savedvideo');
+    v.src=videoUrl;v.hidden=false;
+  }
+  function hideVideoFallback(){
+    var v=$('savedvideo');
+    v.hidden=true;v.removeAttribute('src');
+    if(videoUrl){URL.revokeObjectURL(videoUrl);videoUrl=null}
+  }
+  function record(){
+    if(anim.recording||anim.baking)return Promise.resolve();
+    if(!view.captureStream){mnote('This browser cannot capture canvas video.','err');return Promise.resolve()}
+    var mime=pickMime();
+    if(!mime){mnote('No WebM encoder is available in this browser.','err');return Promise.resolve()}
+    stopPlay();
+    hideVideoFallback();
+    var pre=anim.frames?Promise.resolve():bake();
+    return Promise.resolve(pre).then(function(){
+      if(!anim.frames||!anim.frames.length){
+        mnote('Nothing was baked, so there is nothing to record.','err');
+        return;
+      }
+      view.width=anim.fw;view.height=anim.fh;
+      // grain is close to the worst case for a video codec, so bias the bitrate high
+      var bits=Math.min(40e6,Math.round(anim.fw*anim.fh*anim.fps*anim.vq));
+      var stream=view.captureStream(anim.fps), rec;
+      try{rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:bits})}
+      catch(e){mnote('The recorder refused those settings: '+e.message,'err');return}
+      function finish(reason){
+        if(!anim.recording)return;
+        anim.recording=false;
+        $('recbtn').textContent='⏺ record webm';
+        $('recbtn').disabled=false;
+        if(reason)mnote('Recording failed — '+reason+'.','err');
+        fullRender();
+      }
+      rec.onerror=function(e){
+        finish((e&&e.error&&e.error.name)||'unknown recorder error');
+      };
+      var chunks=[];
+      rec.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
+      rec.onstop=function(){
+        if(!anim.recording)return;              // already reported by the watchdog
+        anim.recording=false;
+        $('recbtn').textContent='⏺ record webm';
+        $('recbtn').disabled=false;
+        var blob=new Blob(chunks,{type:'video/webm'});
+        // A container header with no frames in it is a few hundred bytes. Handing
+        // that over as a finished video would be worse than saying nothing happened.
+        if(blob.size<8192){
+          mnote('The recorder produced an empty file ('+blob.size+' bytes) — this browser '+
+                'captured no frames from the canvas. Try a different browser, or check that '+
+                'the tab stayed in front.','err');
+          fullRender();
+          return;
+        }
+        var name='grain-'+state.seed+'-'+anim.fw+'x'+anim.fh+'-'+anim.loop+'s.webm';
+        deliver(blob,name,{say:mnote,manual:showVideoFallback,
+                           manualHint:'Your browser may offer “Save video as” on right-click; '+
+                                      'otherwise run this file locally, where downloads are unrestricted.'});
+        fullRender();
+      };
+      anim.recording=true;
+      $('recbtn').textContent='⏹ recording…';
+      $('recbtn').disabled=true;
+      // MediaRecorder timestamps by wall clock, so the capture has to run in real
+      // time — which also means a throttled background tab stretches it.
+      mnote('Recording one '+anim.loop+'s loop at '+anim.fw+' × '+anim.fh+
+            ' — keep this tab in front, a background tab throttles the capture.');
+      rec.start();
+      var start=performance.now(), stopClock=null;
+      stopClock=startClock(function(){
+        var el=(performance.now()-start)/1000;
+        if(el>=anim.loop){
+          if(stopClock)stopClock();
+          drawFrame(0);
+          try{rec.stop()}catch(e){finish('the recorder would not stop cleanly')}
+          return;
+        }
+        drawFrame(el/anim.loop);
+      });
+      // Whatever the browser does with canvas capture, the UI must not be left
+      // stuck on "recording…". If onstop never arrives, say so and reset.
+      setTimeout(function(){
+        if(!anim.recording)return;
+        try{rec.stop()}catch(e){}
+        setTimeout(function(){
+          if(anim.recording)finish('the recorder never returned a file');
+        },1500);
+      },(anim.loop+6)*1000);
+    }).catch(function(e){
+      anim.recording=false;
+      $('recbtn').textContent='⏺ record webm';
+      $('recbtn').disabled=false;
+      mnote('Could not record: '+(e&&e.message?e.message:e),'err');
+    });
+  }
+
+  // ---------- track UI ----------
+  function curveGlyph(name){
+    var f=EASINGS[name]||EASINGS.linear, d='M0 20';
+    for(var i=1;i<=24;i++){
+      var t=i/24, y=20-Math.max(-0.7,Math.min(1.7,f(t)))*20;
+      d+='L'+(t*20).toFixed(2)+' '+y.toFixed(2);
+    }
+    // square viewBox so the curve is not squashed; overshoot from back/elastic is
+    // allowed to draw outside it (the element is overflow:visible)
+    var svg=svgEl('svg',{'class':'curve',viewBox:'0 0 20 20','aria-hidden':'true'});
+    svg.appendChild(svgEl('path',{d:d}));
+    return svg;
+  }
+  function buildWindow(tr,onChange){
+    var wrap=document.createElement('div');wrap.className='win';
+    var bar=document.createElement('div');bar.className='wbar';
+    var line=document.createElement('div');line.className='wtrack';
+    var g1=document.createElement('div'),g2=document.createElement('div');
+    g1.className=g2.className='wgrip';
+    g1.tabIndex=g2.tabIndex=0;
+    g1.setAttribute('role','slider');g2.setAttribute('role','slider');
+    g1.setAttribute('aria-label','Window start');g2.setAttribute('aria-label','Window end');
+    wrap.appendChild(line);wrap.appendChild(bar);wrap.appendChild(g1);wrap.appendChild(g2);
+    function repaint(){
+      bar.style.left=(tr.s*100)+'%';
+      bar.style.width=((tr.e-tr.s)*100)+'%';
+      g1.style.left=(tr.s*100)+'%';
+      g2.style.left=(tr.e*100)+'%';
+      g1.setAttribute('aria-valuenow',tr.s.toFixed(2));
+      g2.setAttribute('aria-valuenow',tr.e.toFixed(2));
+      wrap.title='moves over '+Math.round(tr.s*100)+'–'+Math.round(tr.e*100)+'% of the loop';
+    }
+    function move(which,v){
+      v=v<0?0:v>1?1:v;
+      if(which===0)tr.s=Math.min(v,tr.e-0.02);
+      else tr.e=Math.max(v,tr.s+0.02);
+      if(tr.s<0)tr.s=0;
+      if(tr.e>1)tr.e=1;
+      repaint();onChange();
+    }
+    function bindGrip(g,which){
+      g.addEventListener('pointerdown',function(e){
+        e.preventDefault();
+        try{g.setPointerCapture(e.pointerId)}catch(err){}
+        function mv(ev){
+          var r=wrap.getBoundingClientRect();
+          move(which,(ev.clientX-r.left)/r.width);
+        }
+        function up(){
+          g.removeEventListener('pointermove',mv);
+          g.removeEventListener('pointerup',up);
+          g.removeEventListener('pointercancel',up);
+        }
+        g.addEventListener('pointermove',mv);
+        g.addEventListener('pointerup',up);
+        g.addEventListener('pointercancel',up);
+      });
+      g.addEventListener('keydown',function(e){
+        var d=e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0;
+        if(!d)return;
+        e.preventDefault();
+        move(which,(which===0?tr.s:tr.e)+d*(e.shiftKey?0.1:0.02));
+      });
+    }
+    bindGrip(g1,0);bindGrip(g2,1);
+    repaint();
+    return wrap;
+  }
+
+  function buildTrackRow(tr){
+    var def=propDef(tr.id);
+    var row=document.createElement('div');
+    row.className='track';
+
+    // line 1 — what it is, and where it starts and ends
+    var head=document.createElement('div');
+    head.className='trow';
+    var name=document.createElement('span');
+    name.className='tname';name.textContent=def.label;
+    head.appendChild(name);
+
+    var from=document.createElement('span');
+    from.className='tfrom';
+    head.appendChild(from);
+
+    var arrow=document.createElement('span');
+    arrow.className='tarrow';arrow.textContent='→';
+    head.appendChild(arrow);
+
+    var toVal=document.createElement('span');
+    toVal.className='tto-v';
+    head.appendChild(toVal);
+
+    var del=document.createElement('button');
+    del.type='button';del.className='tdel';del.textContent='✕';
+    del.setAttribute('aria-label','Stop animating '+def.label);
+    del.addEventListener('click',function(){removeTrack(tr.id)});
+    head.appendChild(del);
+    row.appendChild(head);
+
+    // line 2 — the target control
+    var toCell=document.createElement('span');
+    toCell.className='tto';
+
+    if(def.kind==='pose'){
+      from.textContent='pose A';
+      toVal.textContent='pose B';
+      var hint=document.createElement('span');
+      hint.className='tposehint';
+      hint.textContent='edit each pose with the shape editor';
+      toCell.appendChild(hint);
+    }else if(def.kind==='color'){
+      var ci=document.createElement('input');
+      ci.type='color';ci.value=tr.to;
+      ci.setAttribute('aria-label',def.label+' target colour');
+      ci.addEventListener('input',function(){
+        tr.to=ci.value;toVal.textContent=ci.value;
+        invalidate();scrubTo(false);
+      });
+      toCell.appendChild(ci);
+      toVal.textContent=tr.to;
+    }else{
+      var src=$(tr.id);
+      var ri=document.createElement('input');
+      ri.type='range';
+      ri.min=src.min;ri.max=src.max;ri.step=src.step;ri.value=tr.to;
+      ri.setAttribute('aria-label',def.label+' target value');
+      ri.addEventListener('input',function(){
+        tr.to=+ri.value;toVal.textContent=fmtTrack(tr.id,tr.to);
+        invalidate();scrubTo(true);
+      });
+      ri.addEventListener('change',function(){scrubTo(false)});
+      toCell.appendChild(ri);
+      toVal.textContent=fmtTrack(tr.id,tr.to);
+    }
+    row.appendChild(toCell);
+
+    // line 3 — easing curve and the slice of the loop it moves during
+    var foot=document.createElement('div');
+    foot.className='trow';
+    var easeCell=document.createElement('span');
+    easeCell.className='tease';
+    var sel=document.createElement('select');
+    sel.setAttribute('aria-label',def.label+' easing');
+    for(var i=0;i<EASE_NAMES.length;i++){
+      var o=document.createElement('option');
+      o.value=o.textContent=EASE_NAMES[i];
+      if(EASE_NAMES[i]===tr.ease)o.selected=true;
+      sel.appendChild(o);
+    }
+    var glyph=curveGlyph(tr.ease);
+    sel.addEventListener('input',function(){
+      tr.ease=sel.value;
+      var g=curveGlyph(tr.ease);
+      easeCell.replaceChild(g,glyph);
+      glyph=g;
+      invalidate();scrubTo(false);
+    });
+    easeCell.appendChild(sel);
+    easeCell.appendChild(glyph);
+    foot.appendChild(easeCell);
+    foot.appendChild(buildWindow(tr,function(){invalidate();scrubTo(true)}));
+    row.appendChild(foot);
+
+    return {el:row,tr:tr,from:from};
+  }
+  function fmtTrack(id,v){
+    if(id==='tension')return (v/100).toFixed(2);
+    if(id==='soft')return (+v).toFixed(1)+'%';
+    if(id==='gsize')return Math.round(v)+'px';
+    return String(Math.round(v*100)/100);
+  }
+  function rebuildTracks(){
+    var box=$('tracks');
+    while(box.firstChild)box.removeChild(box.firstChild);
+    anim.rows=[];
+    for(var i=0;i<anim.tracks.length;i++){
+      var r=buildTrackRow(anim.tracks[i]);
+      anim.rows.push(r);
+      box.appendChild(r.el);
+    }
+    $('poserow').hidden=!trackFor('shapes');
+    rebuildAddOptions();
+    syncTrackFrom();
+  }
+  function syncTrackFrom(){
+    for(var i=0;i<anim.rows.length;i++){
+      var r=anim.rows[i], def=propDef(r.tr.id);
+      if(def.kind==='pose')continue;
+      if(def.kind==='color'){
+        r.from.textContent='';
+        r.from.className='tfrom';
+        var sw=document.createElement('span');
+        sw.className='sw-mini';
+        sw.style.background=$(r.tr.id).value;
+        r.from.appendChild(sw);
+      }else{
+        r.from.textContent=fmtTrack(r.tr.id,+$(r.tr.id).value);
+      }
+    }
+  }
+  function rebuildAddOptions(){
+    var sel=$('addprop');
+    while(sel.firstChild)sel.removeChild(sel.firstChild);
+    var head=document.createElement('option');
+    head.value='';head.textContent='+ add a property…';
+    sel.appendChild(head);
+    for(var i=0;i<ANIM_PROPS.length;i++){
+      var d=ANIM_PROPS[i];
+      if(trackFor(d.id))continue;
+      var o=document.createElement('option');
+      o.value=d.id;o.textContent=d.label;
+      sel.appendChild(o);
+    }
+    sel.disabled=sel.children.length<2;
+  }
+  function addTrack(id){
+    if(trackFor(id))return;
+    var def=propDef(id);
+    if(!def)return;
+    var tr={id:id,ease:'ease-in-out',s:0,e:1,to:null};
+    if(def.kind==='color'){
+      tr.to=$(id).value;
+    }else if(def.kind==='num'){
+      var src=$(id);
+      // start B at the far end of the slider from A, so the track does something
+      var lo=+src.min, hi=+src.max, cur=+src.value;
+      tr.to=(cur-lo)>(hi-cur)?lo:hi;
+    }
+    anim.tracks.push(tr);
+    invalidate();
+    rebuildTracks();
+    if(id==='shapes')
+      mnote('Pose B starts as a copy of A — switch to B and move things to give the morph somewhere to go.');
+    else if(def.kind==='color')
+      mnote('Set a target colour for '+def.label+'.');
+    else mnote('');
+  }
+  function removeTrack(id){
+    for(var i=0;i<anim.tracks.length;i++)
+      if(anim.tracks[i].id===id){anim.tracks.splice(i,1);break}
+    invalidate();
+    rebuildTracks();
+    scrubTo(false);
+  }
+  function setPose(which){
+    if(state.pose===which)return;
+    state.pose=which;
+    state.shapes=state.poses[which];
+    $('poseA').setAttribute('aria-pressed',String(which==='A'));
+    $('poseB').setAttribute('aria-pressed',String(which==='B'));
+    invalidate();
+    fullRender();
+  }
+
+  // ---------- wiring ----------
+  function upd(id,f){
+    var el=$(id), out=$(id+'-v');
+    if(out)out.textContent=(f||function(v){return v})(el.value);
+  }
+  var fmt={
+    soft:function(v){return(+v).toFixed(1)+'%'},
+    gsize:function(v){return v+'px'},
+    tension:function(v){return(v/100).toFixed(2)}
+  };
+
+  var baseIds=['bg','c0','c1','c2','c3','blobs','soft','enoise','contrast','rim','spread','linear','tension','aspect'];
+  var grainIds=['amount','gsize','chroma','shadow'];
+
+  var t=null;
+  baseIds.forEach(function(id){
+    $(id).addEventListener('input',function(){
+      upd(id,fmt[id]);
+      invalidate();                 // the rail is pose/value A — a bake is now stale
+      clearTimeout(t);t=setTimeout(fullRender,60);
+    });
+  });
+  grainIds.forEach(function(id){
+    $(id).addEventListener('input',function(){
+      upd(id,fmt[id]);
+      invalidate();
+      clearTimeout(t);t=setTimeout(function(){compose()},40);
+    });
+  });
+  $('scale').addEventListener('input',fullRender);
+  $('edit').addEventListener('input',function(){syncOverlay()});
+
+  $('shuffle').addEventListener('click',function(){
+    state.seed=(Math.random()*1e9)|0;
+    var g=genShapes(state.seed);
+    state.light=g.light;
+    state.poses.A=g.list;
+    state.poses.B=clonePose(g.list);
+    state.shapes=state.poses[state.pose];
+    flushNoise();                   // cached fields are keyed by the old seed
+    invalidate();
+    $('seed-v').textContent=state.seed;
+    fullRender();
+  });
+  $('resetblob').addEventListener('click',function(){
+    if(state.sel<0)return;
+    state.shapes[state.sel]=genShapes(state.seed).list[state.sel];
+    invalidate();
+    fullRender();
+  });
+
+  // ---------- motion wiring ----------
+  ['loop','fps','mode','bakew','vq'].forEach(function(id){
+    $(id).addEventListener('input',function(){
+      if(id==='loop')$('loop-v').textContent=(+$('loop').value).toFixed(1)+'s';
+      readGlobals();
+      invalidate();
+      mnote('');
+    });
+  });
+  var scrubLive=false;
+  $('scrub').addEventListener('pointerdown',function(){scrubLive=true});
+  ['pointerup','pointercancel'].forEach(function(ev){
+    window.addEventListener(ev,function(){
+      if(!scrubLive)return;
+      scrubLive=false;
+      if(!anim.playing)scrubTo(false);       // settle at full quality on release
+    });
+  });
+  $('scrub').addEventListener('input',function(){
+    if(anim.playing)stopPlay();
+    scrubTo(true);
+  });
+  $('scrub').addEventListener('change',function(){
+    if(!scrubLive&&!anim.playing)scrubTo(false);
+  });
+
+  $('playbtn').addEventListener('click',function(){togglePlay()});
+  $('recbtn').addEventListener('click',function(){record()});
+  $('addprop').addEventListener('input',function(){
+    var v=$('addprop').value;
+    if(!v)return;
+    addTrack(v);
+    $('addprop').value='';
+  });
+  $('poseA').addEventListener('click',function(){setPose('A')});
+  $('poseB').addEventListener('click',function(){setPose('B')});
+
+  // ---------- export ----------
+  // A full-size render blocks the main thread for seconds, and inside the
+  // claude.ai viewer the page cannot download directly — it has to offer the file
+  // through window.claude.downloads, which the viewer may decline or refuse as
+  // too large. Every one of those outcomes has to be visible, or a failed export
+  // is indistinguishable from a dead button.
+  var SAVE_CAP=16*1024*1024;
+  var exporting=false;
+
+  function status(msg,kind){
+    var n=$('exportnote');
+    n.textContent=msg||'';
+    n.className='exportnote'+(kind?' '+kind:'');
+  }
+  // Let the status line show before we block the thread. rAF stalls in a hidden or
+  // unpainted frame, so race it against a timer — otherwise an export started in a
+  // background tab never resumes and the button stays disabled for good.
+  function paint(){
+    return new Promise(function(res){
+      var settled=false;
+      var finish=function(){if(!settled){settled=true;res()}};
+      requestAnimationFrame(function(){requestAnimationFrame(finish)});
+      setTimeout(finish,60);
+    });
+  }
+  function toBlobAsync(canvas,type){
+    return new Promise(function(res,rej){
+      canvas.toBlob(function(b){b?res(b):rej(new Error('the browser could not encode the image'))},type);
+    });
+  }
+  function mib(bytes){return (bytes/1048576).toFixed(1)+' MiB'}
+
+  function offerRetry(scale){
+    var b=$('retryscale');
+    b.textContent='↓ export at '+scale+'× instead';
+    b.hidden=false;
+  }
+  function hideRetry(){$('retryscale').hidden=true}
+
+  function explain(err,size){
+    var code=err&&err.code;
+    if(code==='too_large')
+      return 'The viewer refused this file as too large ('+mib(size)+'; the limit is 16 MiB).';
+    if(code==='declined')return 'Save cancelled.';
+    if(code==='rate_limited')return 'A save prompt is already open — try again in a moment.';
+    if(code==='rejected_extension'||code==='extension_not_enabled')
+      return 'This viewer will not save .png files.';
+    if(code==='bad_request')return 'The file could not be prepared'+(err.message?': '+err.message:'.');
+    return 'Saving is unavailable in this view'+(code?' ('+code+').':'.');
+  }
+
+  // Last resort when the page may not download on its own: show the finished image
+  // so it can be saved by hand. The <img> is the FULL-resolution blob however small
+  // it is displayed, so "Save image as" yields the real export.
+  var manualUrl=null;
+  function showForManualSave(blob){
+    if(manualUrl)URL.revokeObjectURL(manualUrl);
+    manualUrl=URL.createObjectURL(blob);
+    var img=$('savedimg');
+    img.src=manualUrl;
+    img.hidden=false;
+  }
+  function hideManualSave(){
+    var img=$('savedimg');
+    img.hidden=true;
+    img.removeAttribute('src');
+    if(manualUrl){URL.revokeObjectURL(manualUrl);manualUrl=null}
+  }
+
+  // opts.say  — where to report (defaults to the export note)
+  // opts.manual — how to present the file when this view cannot save it at all
+  function deliver(blob,name,opts){
+    opts=opts||{};
+    var say=opts.say||status;
+    var manual=opts.manual||showForManualSave;
+    var hint=opts.manualHint||'right-click the image below and choose “Save image as”.';
+    var dl=window.claude&&window.claude.downloads;
+    if(dl){
+      say('Saving '+mib(blob.size)+' …');
+      return dl.save({filename:name,data:blob}).then(function(){
+        say('Saved '+name+' · '+mib(blob.size),'ok');
+      },function(err){
+        say(explain(err,blob.size),'err');
+        if(err&&err.code==='too_large'&&!opts.manual&&+$('scale').value>1)
+          offerRetry(+$('scale').value-1);
+        else manual(blob);
+      });
+    }
+    // No downloads capability. Standalone, an ordinary anchor download works; inside
+    // an embedding frame it is blocked and would fail silently — so don't claim it
+    // worked, hand the file over for a manual save instead.
+    if(window.self===window.top){
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=name;
+      a.click();
+      setTimeout(function(){URL.revokeObjectURL(a.href)},4000);
+      say('Downloaded '+name+' · '+mib(blob.size),'ok');
+      return Promise.resolve();
+    }
+    manual(blob);
+    say('Rendered '+mib(blob.size)+'. This view can’t save files directly — '+hint,'err');
+    return Promise.resolve();
+  }
+
+  function runExport(){
+    if(exporting)return Promise.resolve();
+    exporting=true;
+    hideRetry();
+    hideManualSave();
+    $('download').disabled=true;
+    var p=params(), d=previewDims(p);
+    var w=d[0]*p.scale, h=d[1]*p.scale;
+    var name='grain-'+state.seed+'-'+w+'x'+h+'.png';
+    status('Rendering '+w+' × '+h+' …');
+    return paint().then(function(){
+      var big=renderBase(w,h,p,false);
+      if(p.amount>0)applyGrain(big,p,p.gsize*p.scale);
+      status('Encoding PNG …');
+      return paint().then(function(){return toBlobAsync(big,'image/png')});
+    }).then(function(blob){
+      // warn before the viewer refuses it, so the number is attributable
+      if(blob.size>SAVE_CAP&&window.claude&&window.claude.downloads)
+        status('Encoded '+mib(blob.size)+' — likely over the 16 MiB save limit …');
+      return deliver(blob,name);
+    }).catch(function(err){
+      status(err&&err.message?err.message:'Export failed.','err');
+    }).then(function(){
+      exporting=false;
+      $('download').disabled=false;
+    });
+  }
+
+  $('download').addEventListener('click',function(){runExport()});
+  $('retryscale').addEventListener('click',function(){
+    var s=/(\d)×/.exec($('retryscale').textContent);
+    if(!s)return;
+    $('scale').value=s[1];
+    fullRender();
+    runExport();
+  });
+
+  ['blobs','soft','enoise','contrast','rim','spread','tension','amount','gsize','chroma'].forEach(function(id){upd(id,fmt[id])});
+  var init=genShapes(state.seed);
+  state.light=init.light;
+  state.poses.A=init.list;
+  state.poses.B=clonePose(init.list);
+  state.shapes=state.poses.A;
+  $('seed-v').textContent=state.seed;
+  $('loop-v').textContent=(+$('loop').value).toFixed(1)+'s';
+  readGlobals();
+  rebuildTracks();
+  fullRender();
+})();
+</script>
