@@ -139,8 +139,15 @@
   .check{display:flex;align-items:center;gap:9px;font-size:11.5px;color:var(--muted);cursor:pointer}
   .check input{accent-color:var(--accent);width:14px;height:14px;margin:0}
 
-  .seed{font-size:10.5px;color:var(--faint);letter-spacing:.05em}
+  .seed{font-size:10.5px;color:var(--faint);letter-spacing:.05em;line-height:1.5}
   .seed b{color:var(--muted);font-weight:400}
+  .grouphint{font-size:10.5px;color:var(--faint);line-height:1.5;margin:0;letter-spacing:.04em}
+
+  /* mode gates: each mode hides the controls that cannot act on it */
+  body[data-mode="gradient"] .shapes-only{display:none}
+  body[data-mode="shapes"] .gradient-only{display:none}
+  .modepick button{flex:1}
+  .modepick{display:flex;width:100%}
 
   .exportnote{
     font-size:10.5px;line-height:1.55;letter-spacing:.04em;
@@ -247,6 +254,7 @@
     background:var(--panel);border:1px solid var(--line);border-radius:8px;
     padding:9px 10px;font-size:11.5px;min-width:0;
   }
+  .track.inactive{opacity:.4}
   .track .trow{display:flex;align-items:center;gap:8px;min-width:0}
   .track .tname{color:var(--ink);letter-spacing:.03em;flex:1;min-width:0;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -354,6 +362,13 @@
   <aside class="rail">
 
     <div class="group">
+      <h2>Mode</h2>
+      <span class="posepick modepick">
+        <button id="modeShapes" type="button" aria-pressed="true">shapes</button><button id="modeGradient" type="button" aria-pressed="false">gradient</button>
+      </span>
+    </div>
+
+    <div class="group">
       <h2>Palette</h2>
       <div class="swatches">
         <div class="sw"><input type="color" id="bg" value="#060608" aria-label="Background color"><span>bg</span></div>
@@ -364,7 +379,15 @@
       </div>
     </div>
 
-    <div class="group">
+    <div class="group gradient-only">
+      <h2>Gradient</h2>
+      <div class="row"><label for="gcount">colours</label><input type="range" id="gcount" min="2" max="4" step="1" value="4"><span class="val" id="gcount-v">4</span></div>
+      <div class="row"><label for="steps">steps</label><input type="range" id="steps" min="2" max="64" step="1" value="6"><span class="val" id="steps-v">6</span></div>
+      <label class="check"><input type="checkbox" id="smooth"> smooth ramp (ignore steps)</label>
+      <p class="grouphint">c1 at the top through c4 at the bottom, filling the frame.</p>
+    </div>
+
+    <div class="group shapes-only">
       <h2>Form</h2>
       <div class="row"><label for="blobs">layers</label><input type="range" id="blobs" min="1" max="7" step="1" value="4"><span class="val" id="blobs-v">4</span></div>
       <div class="row"><label for="soft">edge blur</label><input type="range" id="soft" min="0.1" max="4" step="0.1" value="0.8"><span class="val" id="soft-v">0.8%</span></div>
@@ -373,13 +396,17 @@
       <div class="row"><label for="rim">rim light</label><input type="range" id="rim" min="0" max="100" step="1" value="55"><span class="val" id="rim-v">55</span></div>
       <div class="row"><label for="spread">spread</label><input type="range" id="spread" min="0" max="100" step="1" value="55"><span class="val" id="spread-v">55</span></div>
       <label class="check"><input type="checkbox" id="linear"> linear gradient fill</label>
-      <div class="btnrow">
-        <button id="shuffle" type="button">↻ shuffle shapes</button>
-      </div>
-      <div class="seed">seed <b id="seed-v">—</b></div>
     </div>
 
     <div class="group">
+      <h2>Seed</h2>
+      <div class="btnrow">
+        <button id="shuffle" type="button">↻ reshuffle</button>
+      </div>
+      <div class="seed">seed <b id="seed-v">—</b> · drives shapes and grain</div>
+    </div>
+
+    <div class="group shapes-only">
       <h2>Shape editor</h2>
       <label class="check"><input type="checkbox" id="edit" checked> show control points</label>
       <div class="row"><label for="tension">curve tension</label><input type="range" id="tension" min="0" max="100" step="1" value="100"><span class="val" id="tension-v">1.00</span></div>
@@ -478,8 +505,8 @@
       <div class="canvas-clip"><canvas id="view"></canvas></div>
       <svg class="ov" id="ov" aria-label="Shape editor overlay"></svg>
     </div>
-    <div class="chips" id="chips"></div>
-    <p class="hint">click a shape to select · drag <b>◆</b> to move it · drag <b>●</b> to bend the curve ·
+    <div class="chips shapes-only" id="chips"></div>
+    <p class="hint shapes-only">click a shape to select · drag <b>◆</b> to move it · drag <b>●</b> to bend the curve ·
     arrow keys nudge a focused point, <b>shift</b> for bigger steps · handles never reach the export</p>
     <span class="stage-note" id="dims"></span>
   </main>
@@ -591,6 +618,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   var FASTW=460;     // proxy width used while dragging
 
   var state={
+    mode:'shapes',       // 'shapes' | 'gradient'
     seed:20260804,
     baseW:1440,
     light:0,
@@ -615,6 +643,10 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
       contrast:+$('contrast').value,
       rim:+$('rim').value,
       spread:+$('spread').value,
+      mode:state.mode,
+      gcount:+$('gcount').value,
+      steps:+$('steps').value,
+      smooth:$('smooth').checked,
       linear:$('linear').checked,
       tension:+$('tension').value/100,
       edit:$('edit').checked,
@@ -701,11 +733,44 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   }
 
   // ---------- base gradient ----------
+  // ---------- gradient mode ----------
+  // A single vertical ramp across the swatches, quantised into flat bands. The ramp
+  // is walked in linear light for the same reason the animation lerps there: a
+  // straight sRGB blend sags through the middle and muddies the midpoints.
+  function rampColor(cols,t){
+    if(cols.length===1)return hex2rgb(cols[0]);
+    var x=t*(cols.length-1);
+    var i=Math.max(0,Math.min(cols.length-2,Math.floor(x)));
+    var f=x-i;
+    var A=hex2rgb(cols[i]), B=hex2rgb(cols[i+1]), out=[];
+    for(var k=0;k<3;k++){
+      var la=srgb2lin(A[k]), lb=srgb2lin(B[k]);
+      out.push(lin2srgb(la+(lb-la)*f));
+    }
+    return out;
+  }
+  function drawGradient(ctx,w,h,p){
+    var cols=p.colors.slice(0,Math.max(2,Math.min(p.colors.length,Math.round(p.gcount))));
+    // smooth is just one band per pixel row — same code path, so the two agree exactly
+    var n=p.smooth?h:Math.max(2,Math.round(p.steps));
+    for(var b=0;b<n;b++){
+      var t=n===1?0:b/(n-1);
+      ctx.fillStyle=css(rampColor(cols,t));
+      var y0=Math.floor(b*h/n), y1=Math.floor((b+1)*h/n);
+      if(y1>y0)ctx.fillRect(0,y0,w,y1-y0);
+    }
+  }
+
   function renderBase(w,h,p,fast,shapes){
     shapes=shapes||state.shapes;
     var c=document.createElement('canvas');c.width=w;c.height=h;
     var ctx=c.getContext('2d');
     ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);
+
+    if(p.mode==='gradient'){
+      drawGradient(ctx,w,h,p);
+      return c;
+    }
 
     var f=frame(w,h), sp=p.spread/100, t=p.tension;
     var lx=Math.cos(state.light), ly=Math.sin(state.light);   // global light direction
@@ -1037,7 +1102,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   }
   function syncOverlay(p){
     p=p||params();
-    if(!p.edit){ov.setAttribute('hidden','');return}
+    if(!p.edit||p.mode==='gradient'){ov.setAttribute('hidden','');return}
     ov.removeAttribute('hidden');
     if(!gHit)ovInit();
     if(hitKey!==p.blobs){hitKey=p.blobs;buildHits(p)}
@@ -1204,17 +1269,22 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     {id:'c1',      label:'colour 2',      kind:'color', set:function(p,v){p.colors[1]=v}},
     {id:'c2',      label:'colour 3',      kind:'color', set:function(p,v){p.colors[2]=v}},
     {id:'c3',      label:'colour 4',      kind:'color', set:function(p,v){p.colors[3]=v}},
-    {id:'soft',    label:'edge blur',     kind:'num',   set:function(p,v){p.soft=v}},
-    {id:'enoise',  label:'edge dissolve', kind:'num',   set:function(p,v){p.enoise=v}},
-    {id:'contrast',label:'contrast',      kind:'num',   set:function(p,v){p.contrast=v}},
-    {id:'rim',     label:'rim light',     kind:'num',   set:function(p,v){p.rim=v}},
-    {id:'spread',  label:'spread',        kind:'num',   set:function(p,v){p.spread=v}},
-    {id:'tension', label:'curve tension', kind:'num',   set:function(p,v){p.tension=v/100}},
+    {id:'soft',    label:'edge blur',     kind:'num', modes:['shapes'],   set:function(p,v){p.soft=v}},
+    {id:'enoise',  label:'edge dissolve', kind:'num', modes:['shapes'],   set:function(p,v){p.enoise=v}},
+    {id:'contrast',label:'contrast',      kind:'num', modes:['shapes'],   set:function(p,v){p.contrast=v}},
+    {id:'rim',     label:'rim light',     kind:'num', modes:['shapes'],   set:function(p,v){p.rim=v}},
+    {id:'spread',  label:'spread',        kind:'num', modes:['shapes'],   set:function(p,v){p.spread=v}},
+    {id:'tension', label:'curve tension', kind:'num', modes:['shapes'],   set:function(p,v){p.tension=v/100}},
+    {id:'gcount',  label:'gradient colours',kind:'num',modes:['gradient'],set:function(p,v){p.gcount=Math.max(2,Math.round(v))}},
+    {id:'steps',   label:'gradient steps',kind:'num', modes:['gradient'], set:function(p,v){p.steps=Math.max(2,Math.round(v))}},
     {id:'amount',  label:'grain amount',  kind:'num',   set:function(p,v){p.amount=v}},
     {id:'gsize',   label:'grain size',    kind:'num',   set:function(p,v){p.gsize=Math.max(1,Math.round(v))}},
     {id:'chroma',  label:'chroma',        kind:'num',   set:function(p,v){p.chroma=v/100}},
-    {id:'shapes',  label:'shape pose',    kind:'pose'}
+    {id:'shapes',  label:'shape pose',    kind:'pose', modes:['shapes']}
   ];
+  // a track whose property cannot act in the current mode stays in the list but is
+  // shown greyed, rather than silently doing nothing
+  function propActive(def){return !def.modes||def.modes.indexOf(state.mode)>=0}
   function propDef(id){
     for(var i=0;i<ANIM_PROPS.length;i++)if(ANIM_PROPS[i].id===id)return ANIM_PROPS[i];
     return null;
@@ -1260,7 +1330,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
       var tr=anim.tracks[i];
       if(tr.id==='shapes')continue;
       var def=propDef(tr.id);
-      if(!def)continue;
+      if(!def||!propActive(def))continue;
       var from=$(tr.id).value, k=trackK(tr,phase);
       if(def.kind==='color')def.set(p,lerpColor(from,tr.to,k));
       else def.set(p,(+from)+((+tr.to)-(+from))*k);
@@ -1637,7 +1707,8 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   function buildTrackRow(tr){
     var def=propDef(tr.id);
     var row=document.createElement('div');
-    row.className='track';
+    row.className='track'+(propActive(def)?'':' inactive');
+    if(!propActive(def))row.title=def.label+' does not apply in '+state.mode+' mode';
 
     // line 1 — what it is, and where it starts and ends
     var head=document.createElement('div');
@@ -1746,7 +1817,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
       anim.rows.push(r);
       box.appendChild(r.el);
     }
-    $('poserow').hidden=!trackFor('shapes');
+    $('poserow').hidden=!trackFor('shapes')||state.mode!=='shapes';
     rebuildAddOptions();
     syncTrackFrom();
   }
@@ -1774,7 +1845,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     sel.appendChild(head);
     for(var i=0;i<ANIM_PROPS.length;i++){
       var d=ANIM_PROPS[i];
-      if(trackFor(d.id))continue;
+      if(trackFor(d.id)||!propActive(d))continue;
       var o=document.createElement('option');
       o.value=d.id;o.textContent=d.label;
       sel.appendChild(o);
@@ -1810,6 +1881,18 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     rebuildTracks();
     scrubTo(false);
   }
+  function setMode(which){
+    if(state.mode===which)return;
+    state.mode=which;
+    document.body.dataset.mode=which;
+    $('modeShapes').setAttribute('aria-pressed',String(which==='shapes'));
+    $('modeGradient').setAttribute('aria-pressed',String(which==='gradient'));
+    if(which==='gradient')state.sel=-1;
+    invalidate();
+    chipKey='';                 // chips and tracks both depend on the mode
+    rebuildTracks();
+    fullRender();
+  }
   function setPose(which){
     if(state.pose===which)return;
     state.pose=which;
@@ -1831,7 +1914,8 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     tension:function(v){return(v/100).toFixed(2)}
   };
 
-  var baseIds=['bg','c0','c1','c2','c3','blobs','soft','enoise','contrast','rim','spread','linear','tension','aspect'];
+  var baseIds=['bg','c0','c1','c2','c3','blobs','soft','enoise','contrast','rim','spread','linear','tension','aspect',
+               'gcount','steps','smooth'];
   var grainIds=['amount','gsize','chroma','shadow'];
 
   var t=null;
@@ -1907,6 +1991,8 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   });
   $('poseA').addEventListener('click',function(){setPose('A')});
   $('poseB').addEventListener('click',function(){setPose('B')});
+  $('modeShapes').addEventListener('click',function(){setMode('shapes')});
+  $('modeGradient').addEventListener('click',function(){setMode('gradient')});
 
   // ---------- export ----------
   // A full-size render blocks the main thread for seconds, and inside the
@@ -2050,7 +2136,9 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     runExport();
   });
 
-  ['blobs','soft','enoise','contrast','rim','spread','tension','amount','gsize','chroma'].forEach(function(id){upd(id,fmt[id])});
+  ['blobs','soft','enoise','contrast','rim','spread','tension','amount','gsize','chroma',
+   'gcount','steps'].forEach(function(id){upd(id,fmt[id])});
+  document.body.dataset.mode=state.mode;
   var init=genShapes(state.seed);
   state.light=init.light;
   state.poses.A=init.list;

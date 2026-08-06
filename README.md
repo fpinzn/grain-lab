@@ -16,9 +16,19 @@ rendered image for a manual save.
 
 ## What it does
 
-**Stills.** Palette, layer count, edge blur and dissolve, contrast, rim light, spread,
-grain amount / cell size / chroma, shadow protection. Radial or linear gradient fills.
-Exports PNG at 1×–3× (up to 4320 × 2880) in five aspect ratios.
+Two modes share the same palette, grain, motion and export.
+
+**Shapes** — soft overlapping forms on a near-black ground: layer count, edge blur and
+dissolve, contrast, rim light, spread, radial or linear fills.
+
+**Gradient** — one vertical ramp filling the frame, walked across the swatches from c1 at
+the top to c4 at the bottom, quantised into a set number of flat bands. Two colours or
+four; two steps or sixty-four; or a smooth ramp with no banding at all. The ramp is walked
+in linear light, so a magenta-to-orange sweep keeps its saturation through the middle
+instead of sagging grey.
+
+**Both.** Grain amount / cell size / chroma with shadow protection. PNG export at 1×–3×
+(up to 4320 × 2880) in five aspect ratios.
 
 **Shapes.** Each silhouette is a closed quadratic Bézier spline. Click a shape to select
 it, drag the ◆ grip to move it, drag the ● control points to bend the curve. Arrow keys
@@ -54,9 +64,9 @@ The defaults *are* those measurements. A full write-up — including Photoshop a
 ./run-tests.sh
 ```
 
-49 assertions in headless Chrome covering layout, the shape editor (including overlay /
-canvas pixel register), motion tracks and pose morphing, bake and playback, and every
-export delivery branch. Exits non-zero on failure. Set `$CHROME` if Chrome isn't at the
+65 assertions in headless Chrome covering layout, the shape editor (including overlay /
+canvas pixel register), gradient mode (band counts sampled straight off the canvas),
+motion tracks and pose morphing, bake and playback, and every export delivery branch. Exits non-zero on failure. Set `$CHROME` if Chrome isn't at the
 default macOS path.
 
 ### Publishing

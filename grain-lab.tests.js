@@ -166,6 +166,83 @@
     $('poseA').click(); await sleep(600);
     t('pose A is untouched by pose B edits',px()===poseA);
 
+    // ================= gradient mode =================
+    // Sample the centre column: each flat band is one run of identical pixels, so
+    // the number of runs is the number of steps actually rendered.
+    function column(){
+      return view.getContext('2d').getImageData(Math.floor(view.width/2),0,1,view.height).data;
+    }
+    function bandCount(){
+      var d=column(), runs=1;
+      for(var y=1;y<view.height;y++){
+        var i=y*4, j=i-4;
+        if(d[i]!==d[j]||d[i+1]!==d[j+1]||d[i+2]!==d[j+2])runs++;
+      }
+      return runs;
+    }
+    function pixAt(y){
+      var d=view.getContext('2d').getImageData(Math.floor(view.width/2),y,1,1).data;
+      return [d[0],d[1],d[2]];
+    }
+    function near(a,b,tol){
+      return Math.abs(a[0]-b[0])<=tol&&Math.abs(a[1]-b[1])<=tol&&Math.abs(a[2]-b[2])<=tol;
+    }
+    function hexToRgb(h){
+      return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+    }
+
+    await set('amount',0);           // exact colours, no grain
+    var shapesPx=px();
+    $('modeGradient').click(); await sleep(600);
+    t('mode switch flips the body flag and the buttons',
+      document.body.dataset.mode==='gradient'&&
+      $('modeGradient').getAttribute('aria-pressed')==='true'&&
+      $('modeShapes').getAttribute('aria-pressed')==='false');
+    t('gradient controls appear, shape controls hide',
+      getComputedStyle(document.querySelector('.gradient-only')).display!=='none'&&
+      getComputedStyle(document.querySelector('.shapes-only')).display==='none');
+    t('gradient render replaces the shapes render',px()!==shapesPx);
+    t('shape handles are hidden in gradient mode',ov.hasAttribute('hidden'));
+
+    await set('gcount',4);
+    await set('smooth',false);
+    await set('steps',6);
+    t('steps renders exactly that many bands',bandCount()===6,'got '+bandCount());
+    await set('steps',3);
+    t('changing steps changes the band count',bandCount()===3,'got '+bandCount());
+    await set('steps',24);
+    t('a high step count still bands exactly',bandCount()===24,'got '+bandCount());
+
+    t('the ramp runs top to bottom across the swatches',
+      near(pixAt(2),hexToRgb($('c0').value),2)&&near(pixAt(view.height-2),hexToRgb($('c3').value),2),
+      'top '+pixAt(2)+' bottom '+pixAt(view.height-2));
+
+    await set('gcount',2);
+    t('colour count limits which swatches are used',
+      near(pixAt(view.height-2),hexToRgb($('c1').value),2),
+      'bottom '+pixAt(view.height-2)+' vs c2 '+$('c1').value);
+    await set('gcount',4);
+
+    await set('smooth',true);
+    t('smooth ramp drops the banding',bandCount()>100,'runs '+bandCount());
+    t('smooth ramp keeps the same endpoints',
+      near(pixAt(2),hexToRgb($('c0').value),2)&&near(pixAt(view.height-2),hexToRgb($('c3').value),2));
+    await set('smooth',false);
+
+    var gopts=[].map.call($('addprop').options,function(o){return o.value}).filter(Boolean);
+    t('gradient mode offers steps and colours to the timeline',
+      gopts.indexOf('steps')>=0&&gopts.indexOf('gcount')>=0);
+    t('gradient mode withholds the shape-only properties',
+      gopts.indexOf('spread')<0&&gopts.indexOf('shapes')<0&&gopts.indexOf('tension')<0);
+    t('a track that cannot act in this mode is greyed, not silently dead',
+      !!document.querySelector('#tracks .track.inactive'));
+
+    $('modeShapes').click(); await sleep(600);
+    t('switching back restores the shapes render',px()===shapesPx);
+    t('shape controls come back',
+      getComputedStyle(document.querySelector('.shapes-only')).display!=='none');
+    await set('amount',15);
+
     // ================= bake and playback =================
     await set('loop',2);
     await set('fps','12');
