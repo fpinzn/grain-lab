@@ -1,6 +1,6 @@
 # Grain Lab
 
-### ▶ [fpinzn.github.io/grain-lab](https://fpinzn.github.io/grain-lab/)
+### ▶ [the lab](https://fpinzn.github.io/grain-lab/) · [the explorer](https://fpinzn.github.io/grain-lab/explorer.html)
 
 A grainy-gradient generator for brand backgrounds. Soft overlapping colour forms on a
 near-black ground, with a film-grain pass over the top — plus a Bézier shape editor and a
@@ -41,6 +41,37 @@ a target (B), through one of twelve easing curves, during a slice of the loop yo
 a two-grip window. Shapes get a pose A → pose B morph. The loop ping-pongs so it seams,
 which also means only half the frames are unique. Frames are baked once into bitmaps, then
 played back and recorded to WebM.
+
+## The explorer
+
+`explorer.html` is for finding a background rather than finishing one — squares, sized
+for an app icon, in a grid you navigate.
+
+The space has three families of axes, and only a few in each actually change an icon:
+
+| family | axes | what it moves |
+|---|---|---|
+| **ramp** | steps · band pos · angle · stops | the gradient — banding, where the bright band sits, direction |
+| **form** | layers · blur · dissolve · contrast · rim · spread · opacity | soft blob structure over the ramp |
+| **grain** | σ · cell size · chroma | texture, and the one that behaves differently at icon size |
+
+Put any two on the axes and the rest are held fixed, so you are always looking at a plane
+through the space instead of a random pile. Click a tile to inspect it; **centre here**
+adopts it as the new middle and re-spreads the axes around it, which is how you walk
+toward something rather than restarting each time. The path you took is kept above the
+grid. Tiles carry a rounded icon mask so you are judging the crop you will actually ship,
+and any tile exports at 512 × 512.
+
+**Palettes** come from your own references: drop an image on the palette panel and it
+finds the gradient columns, samples each one at four heights, and adds them as presets.
+The built-in presets are eyeballed from a screenshot and are only a starting point —
+prefer dropping the real file.
+
+**band pos** deserves a note, because it replaced a worse idea. Reparametrising the ramp
+with `pow(t, k)` seemed natural but squeezed the first colour into a sliver and inverted
+the apparent direction at both extremes. What these references actually vary is *how far
+down the bright band sits*, so that is the axis: stop positions are tent-warped, ends
+pinned, interior stops sliding together.
 
 ## The method
 
