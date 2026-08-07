@@ -31,6 +31,12 @@ contrast, rim light, spread, and a Bézier editor. Set layers to 0 for the bare 
 a 3:1 banner, with an independent icon mask that rounds the corners in the preview, the
 explore tiles and the export.
 
+**Zoom.** The design view always fits the frame on screen, whatever its shape — a 9:16
+canvas shrinks to fit rather than running off the bottom. **100%** is one click away and is
+exactly one canvas pixel per screen pixel, which is the only way to judge grain honestly;
+past that the stage scrolls. The editor handles stay in register at every zoom, because it
+is the frame's wrapper that scales, never the canvas inside it.
+
 **Grain** — amount, cell size, chroma, with shadow protection. Inside shapes it need not
 be uniform: **noise stroke** pulls it onto the silhouette so the edge is textured and the
 middle is clean, **stroke width** sets how far that band reaches inward, and **noise

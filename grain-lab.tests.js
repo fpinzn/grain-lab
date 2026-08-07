@@ -274,6 +274,74 @@
       getComputedStyle(document.querySelector('#chips')).display!=='none');
     await set('amount',15);
 
+    // ================= fit and zoom =================
+    function frameBox(){return document.querySelector('.stage-frame').getBoundingClientRect()}
+    function canvasBox(){return view.getBoundingClientRect()}
+    function registered(){
+      var p1=ov.querySelectorAll('.pt')[0];
+      if(!p1)return true;
+      var cvb=canvasBox();
+      var scr=new DOMPoint(+p1.getAttribute('cx'),+p1.getAttribute('cy')).matrixTransform(ov.getScreenCTM());
+      return Math.abs(scr.x-(cvb.left+ +p1.getAttribute('cx')/view.width*cvb.width))<0.5&&
+             Math.abs(scr.y-(cvb.top+ +p1.getAttribute('cy')/view.height*cvb.height))<0.5;
+    }
+    $('tabDesign').click(); await sleep(400);
+    await set('rounded',false);
+
+    // every frame, including the tall ones, has to fit without scrolling
+    var frames=['1.5','1','0.5625','0.75','3'];
+    var worst='';
+    var allFit=true;
+    for(var fi=0;fi<frames.length;fi++){
+      await set('aspect',frames[fi]);
+      var fb=frameBox();
+      if(fb.bottom>window.innerHeight+1||fb.height>window.innerHeight){
+        allFit=false;worst=frames[fi]+' bottom '+Math.round(fb.bottom)+' vs '+window.innerHeight;
+      }
+    }
+    t('every frame fits the viewport at fit zoom',allFit,worst);
+    await set('aspect','0.5625');
+    t('a vertical frame is taller than it is wide on screen',frameBox().height>frameBox().width);
+    t('fit reports the percentage it landed on',/^fit · \d+%$/.test($('zoomv').textContent),
+      $('zoomv').textContent);
+    await set('aspect','1.5');
+
+    // 100% must be exactly one canvas pixel per CSS pixel
+    $('zoom100').click(); await sleep(300);
+    t('100% shows the canvas at its true pixel size',
+      Math.abs(canvasBox().width-1440)<1.5,'canvas '+Math.round(canvasBox().width)+'px');
+    t('100% is reported as 100%',$('zoomv').textContent==='100%',$('zoomv').textContent);
+    t('100% is a one-click button and reads as pressed',
+      $('zoom100').getAttribute('aria-pressed')==='true'&&
+      $('zoomFit').getAttribute('aria-pressed')==='false');
+
+    select(1); await sleep(300);
+    t('the editor overlay stays in register at 100%',registered());
+    t('zooming past the viewport makes the stage scrollable',
+      $('stageScroll').scrollWidth>$('stageScroll').clientWidth);
+
+    $('zoomFit').click(); await sleep(300);
+    t('fit comes back in one click',$('zoomFit').getAttribute('aria-pressed')==='true'&&
+      frameBox().bottom<=window.innerHeight+1);
+    t('the overlay is still in register after returning to fit',registered());
+
+    // stepping
+    $('zoomIn').click(); await sleep(250);
+    var afterIn=$('zoomv').textContent;
+    t('zoom in leaves fit for an exact step',$('zoomFit').getAttribute('aria-pressed')==='false'&&
+      /%$/.test(afterIn),afterIn);
+    $('zoomOut').click(); await sleep(250);
+    t('zoom out steps back down',$('zoomv').textContent!==afterIn,
+      afterIn+' -> '+$('zoomv').textContent);
+    $('zoomFit').click(); await sleep(300);
+
+    // the zoom must survive a re-render
+    var fitW=Math.round(frameBox().width);
+    await set('contrast',50);
+    t('a parameter edit keeps the zoom',Math.abs(frameBox().width-fitW)<2,
+      fitW+' -> '+Math.round(frameBox().width));
+    await set('contrast',70);
+
     // ================= noise inside shapes =================
     // Grain strength is measured by differencing against a grain-free render of
     // the same scene: the seed is fixed, so the difference IS the grain.
