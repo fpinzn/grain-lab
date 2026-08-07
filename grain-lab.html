@@ -471,6 +471,10 @@
       <div class="row"><label for="rim">rim light</label><input type="range" id="rim" min="0" max="100" step="1" value="55"><span class="val" id="rim-v">55</span></div>
       <div class="row"><label for="spread">spread</label><input type="range" id="spread" min="0" max="100" step="1" value="55"><span class="val" id="spread-v">55</span></div>
       <label class="check"><input type="checkbox" id="linear"> linear gradient fill</label>
+      <div class="row"><label for="gstroke">noise stroke</label><input type="range" id="gstroke" min="0" max="100" step="1" value="0"><span class="val" id="gstroke-v">0</span></div>
+      <div class="row"><label for="gwidth">stroke width</label><input type="range" id="gwidth" min="2" max="45" step="1" value="12"><span class="val" id="gwidth-v">12%</span></div>
+      <div class="row"><label for="gramp">noise gradient</label><input type="range" id="gramp" min="0" max="100" step="1" value="0"><span class="val" id="gramp-v">0</span></div>
+      <p class="grouphint">both reshape the grain <em>inside</em> the shapes only — the ground keeps its own.</p>
     </div>
 
     <div class="group">
@@ -782,6 +786,9 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
       smooth:$('smooth').checked,
       rounded:$('rounded').checked,
       linear:$('linear').checked,
+      gstroke:+$('gstroke').value,
+      gwidth:+$('gwidth').value,
+      gramp:+$('gramp').value,
       tension:+$('tension').value/100,
       edit:$('edit').checked,
       amount:+$('amount').value,
@@ -919,6 +926,68 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     ctx.restore();
   }
 
+  // Grain weighting inside shapes. The grain pass itself stays one flat pass over
+  // the finished image; what varies is how hard it bites, per pixel. The map is
+  // built with plain canvas ops — a clipped fill for the floor, a clipped stroke
+  // for the band that hugs the outline, a clipped gradient for the ramp — so no
+  // per-pixel JavaScript is needed to produce it.
+  function shapeGrainWeights(w,h,p,shapes){
+    if(p.gstroke<=0&&p.gramp<=0)return null;
+    var wc=document.createElement('canvas');wc.width=w;wc.height=h;
+    var ctx=wc.getContext('2d');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);      // ground keeps full grain
+
+    var f=frame(w,h), sp=p.spread/100, t=p.tension;
+    var st=p.gstroke/100, rp=p.gramp/100;
+    var th=(p.angle||0)*Math.PI/180;
+    var dx=-Math.sin(th), dy=Math.cos(th);           // same axis as the ground ramp
+
+    for(var i=0;i<p.blobs;i++){
+      var s=shapes[i];
+      if(!s)continue;
+      var pts=shapePts(s,f,sp), r=s.rn*f.mind;
+      var tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
+      var tc=tmp.getContext('2d');
+      tc.save();
+      blobPath(tc,pts,t);
+      tc.clip();
+
+      var floor=Math.round(255*(1-st));
+      tc.fillStyle='rgb('+floor+','+floor+','+floor+')';
+      tc.fillRect(0,0,w,h);
+
+      if(st>0){                                       // a band hugging the outline
+        var bw=Math.max(1,r*p.gwidth/100);
+        tc.filter='blur('+(bw*0.35).toFixed(2)+'px)';
+        tc.strokeStyle='#fff';
+        tc.lineWidth=bw*2;                            // the clip keeps the inner half
+        blobPath(tc,pts,t);
+        tc.stroke();
+        tc.filter='none';
+      }
+      if(rp>0){                                       // ramp across the shape's extent
+        var lo=Infinity,hi=-Infinity;
+        for(var j=0;j<pts.length;j++){
+          var q=pts[j][0]*dx+pts[j][1]*dy;
+          if(q<lo)lo=q;
+          if(q>hi)hi=q;
+        }
+        if(hi-lo<1)hi=lo+1;
+        var g=tc.createLinearGradient(dx*lo,dy*lo,dx*hi,dy*hi);
+        var dim=Math.round(255*(1-rp));
+        g.addColorStop(0,'rgb('+dim+','+dim+','+dim+')');
+        g.addColorStop(1,'#fff');
+        tc.globalCompositeOperation='multiply';
+        tc.fillStyle=g;
+        tc.fillRect(0,0,w,h);
+        tc.globalCompositeOperation='source-over';
+      }
+      tc.restore();
+      ctx.drawImage(tmp,0,0);
+    }
+    return ctx.getImageData(0,0,w,h).data;
+  }
+
   // A rounded-square mask, so an icon crop can be judged in place. Applied to the
   // preview, the explore tiles and the export alike.
   function iconMask(ctx,w,h){
@@ -1003,6 +1072,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
 
       ctx.drawImage(layer,0,0);
     }
+    if(!fast)c.grainWeights=shapeGrainWeights(w,h,p,shapes);
     return c;
   }
 
@@ -1110,6 +1180,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
 
     var fields=grainFields(w,h,gsize,state.seed+7);
     var mono=fields.mono, chro=fields.chro;
+    var wmap=base.grainWeights||null;
 
     var shrink=SHRINK[gsize]||0.5;
     var norm=1/Math.sqrt(1+p.chroma*p.chroma);
@@ -1121,6 +1192,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
       var att=1;
       if(useShadow){att=lum/60;att=att<0.25?0.25:att>1?1:att;}
       var m=mono[i]-128, k=gain*att;
+      if(wmap)k*=wmap[i]/255;
       for(var ch=0;ch<3;ch++){
         var v=d[i+ch]+(m+p.chroma*(chro[i+ch]-128))*k;
         d[i+ch]=v<0?0:v>255?255:v;
@@ -1154,6 +1226,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     if(p.amount>0){
       var tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
       tmp.getContext('2d').drawImage(cachedBase,0,0);
+      tmp.grainWeights=cachedBase.grainWeights;
       applyGrain(tmp,p,p.gsize);
       vctx.drawImage(tmp,0,0);
     }
@@ -1451,6 +1524,9 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     {id:'rim',     label:'rim light',     kind:'num', modes:['shapes'],   set:function(p,v){p.rim=v}},
     {id:'spread',  label:'spread',        kind:'num', modes:['shapes'],   set:function(p,v){p.spread=v}},
     {id:'tension', label:'curve tension', kind:'num', modes:['shapes'],   set:function(p,v){p.tension=v/100}},
+    {id:'gstroke', label:'noise stroke',   kind:'num', modes:['shapes'],   set:function(p,v){p.gstroke=v}},
+    {id:'gwidth',  label:'stroke width',   kind:'num', modes:['shapes'],   set:function(p,v){p.gwidth=v}},
+    {id:'gramp',   label:'noise gradient', kind:'num', modes:['shapes'],   set:function(p,v){p.gramp=v}},
     {id:'gcount',  label:'gradient colours',kind:'num',modes:['gradient'],set:function(p,v){p.gcount=Math.max(2,Math.round(v))}},
     {id:'steps',   label:'gradient steps',kind:'num', modes:['gradient'], set:function(p,v){p.steps=Math.max(2,Math.round(v))}},
     {id:'mid',     label:'band pos',      kind:'num', modes:['gradient'], set:function(p,v){p.mid=v/100}},
@@ -2108,7 +2184,10 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     {id:'contrast',label:'contrast', family:'form',  lo:0,  hi:100},
     {id:'rim',     label:'rim light',family:'form',  lo:0,  hi:100},
     {id:'spread',  label:'spread',   family:'form',  lo:0,  hi:100},
-    {id:'tension', label:'tension',  family:'form',  lo:0,  hi:100}
+    {id:'tension', label:'tension',  family:'form',  lo:0,  hi:100},
+    {id:'gstroke', label:'noise stroke',  family:'form', lo:0, hi:100},
+    {id:'gwidth',  label:'stroke width',  family:'form', lo:2, hi:45, fmt:function(v){return Math.round(v)+'%'}},
+    {id:'gramp',   label:'noise gradient',family:'form', lo:0, hi:100}
   ];
   var AXINT={steps:1,gcount:1,gsize:1,blobs:1,angle:1};
   function axFmt(d,v){return d.fmt?d.fmt(v):String(Math.round(v*100)/100)}
@@ -2281,7 +2360,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     $('spread').value=q.spread;
     $('tension').value=Math.round(q.tension*100);
     ['blobs','soft','enoise','contrast','rim','spread','tension','amount','gsize','chroma',
-     'gcount','steps','mid','angle'].forEach(function(id){upd(id,fmt[id])});
+     'gcount','steps','mid','angle','gstroke','gwidth','gramp'].forEach(function(id){upd(id,fmt[id])});
     invalidate();
   }
   function recentre(){
@@ -2348,12 +2427,13 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     mid:function(v){return v+'%'},
     angle:function(v){return v+'°'},
     soft:function(v){return(+v).toFixed(1)+'%'},
+    gwidth:function(v){return v+'%'},
     gsize:function(v){return v+'px'},
     tension:function(v){return(v/100).toFixed(2)}
   };
 
   var baseIds=['bg','c0','c1','c2','c3','blobs','soft','enoise','contrast','rim','spread','linear','tension','aspect',
-               'gcount','steps','smooth','mid','angle','rounded'];
+               'gcount','steps','smooth','mid','angle','rounded','gstroke','gwidth','gramp'];
   var grainIds=['amount','gsize','chroma','shadow'];
 
   // one entry point: whichever view is showing gets refreshed
@@ -2610,7 +2690,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   });
 
   ['blobs','soft','enoise','contrast','rim','spread','tension','amount','gsize','chroma',
-   'gcount','steps','mid','angle'].forEach(function(id){upd(id,fmt[id])});
+   'gcount','steps','mid','angle','gstroke','gwidth','gramp'].forEach(function(id){upd(id,fmt[id])});
   document.body.dataset.mode=state.mode;
   document.body.dataset.view=state.view;
   var init=genShapes(state.seed);

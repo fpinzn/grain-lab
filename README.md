@@ -31,7 +31,11 @@ contrast, rim light, spread, and a Bézier editor. Set layers to 0 for the bare 
 a 3:1 banner, with an independent icon mask that rounds the corners in the preview, the
 explore tiles and the export.
 
-**Grain** — amount, cell size, chroma, with shadow protection. PNG export at 1×–3×, up to
+**Grain** — amount, cell size, chroma, with shadow protection. Inside shapes it need not
+be uniform: **noise stroke** pulls it onto the silhouette so the edge is textured and the
+middle is clean, **stroke width** sets how far that band reaches inward, and **noise
+gradient** ramps its strength across the shape along the same axis as the ground. Both
+affect the shapes only — the ground keeps its own grain. PNG export at 1×–3×, up to
 4320 × 2880.
 
 **Shapes.** Each silhouette is a closed quadratic Bézier spline. Click a shape to select
@@ -101,7 +105,10 @@ The defaults *are* those measurements. A full write-up — including Photoshop a
 
 65 assertions in headless Chrome covering layout, the shape editor (including overlay /
 canvas pixel register), gradient mode (band counts sampled straight off the canvas),
-motion tracks and pose morphing, bake and playback, and every export delivery branch. Exits non-zero on failure. Set `$CHROME` if Chrome isn't at the
+motion tracks and pose morphing, bake and playback, and every export delivery branch. Grain placement is
+measured rather than eyeballed: the suite differences a grained render against a
+grain-free one of the same scene, so the difference *is* the grain, and asserts where it
+landed. Exits non-zero on failure. Set `$CHROME` if Chrome isn't at the
 default macOS path.
 
 ### Publishing

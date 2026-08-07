@@ -274,6 +274,72 @@
       getComputedStyle(document.querySelector('#chips')).display!=='none');
     await set('amount',15);
 
+    // ================= noise inside shapes =================
+    // Grain strength is measured by differencing against a grain-free render of
+    // the same scene: the seed is fixed, so the difference IS the grain.
+    $('modeShapes').click(); await sleep(300);
+    await set('blobs',1);
+    await set('spread',0);          // one shape, centred, so we know where to look
+    await set('gstroke',0);
+    await set('gramp',0);
+    await set('rounded',false);
+    await set('aspect','1.5');
+
+    function snap(){
+      return view.getContext('2d').getImageData(0,0,view.width,view.height).data;
+    }
+    function energy(a,b,cx,cy,rad){
+      var sum=0,n=0;
+      for(var y=cy-rad;y<=cy+rad;y++)for(var x=cx-rad;x<=cx+rad;x++){
+        var i=(y*view.width+x)*4;
+        sum+=Math.abs(a[i]-b[i]);n++;
+      }
+      return n?sum/n:0;
+    }
+    var CX=Math.round(view.width/2), CY=Math.round(view.height/2);
+    var CORNER=[40,40];
+
+    await set('amount',0);
+    var clean=snap();
+    await set('amount',30);
+    var flat=snap();
+    var flatMid=energy(clean,flat,CX,CY,10);
+    var flatCorner=energy(clean,flat,CORNER[0],CORNER[1],10);
+    t('grain is measurable in the middle of a shape',flatMid>2,'energy '+flatMid.toFixed(2));
+
+    await set('gstroke',100);
+    var stroked=snap();
+    var strokeMid=energy(clean,stroked,CX,CY,10);
+    var strokeCorner=energy(clean,stroked,CORNER[0],CORNER[1],10);
+    t('noise stroke clears the grain from the middle of the shape',
+      strokeMid<flatMid*0.35,'middle '+flatMid.toFixed(2)+' -> '+strokeMid.toFixed(2));
+    t('noise stroke leaves the ground outside the shape alone',
+      Math.abs(strokeCorner-flatCorner)<0.6,
+      'corner '+flatCorner.toFixed(2)+' -> '+strokeCorner.toFixed(2));
+
+    // the band has to sit near the silhouette, so widening it must reach inward
+    await set('gwidth',45);
+    var wide=snap();
+    t('a wider stroke reaches further in',
+      energy(clean,wide,CX,CY,10)>strokeMid,
+      'middle '+strokeMid.toFixed(2)+' -> '+energy(clean,wide,CX,CY,10).toFixed(2));
+    await set('gwidth',12);
+    await set('gstroke',0);
+
+    await set('gramp',100);
+    var ramped=snap();
+    var rampMid=energy(clean,ramped,CX,CY,10);
+    t('noise gradient thins the grain where the ramp is low',rampMid<flatMid*0.8,
+      'middle '+flatMid.toFixed(2)+' -> '+rampMid.toFixed(2));
+    var up=energy(clean,ramped,CX,CY-150,10), down=energy(clean,ramped,CX,CY+150,10);
+    t('noise gradient really ramps across the shape',down>up*1.5,
+      'top '+up.toFixed(2)+' vs bottom '+down.toFixed(2));
+
+    await set('gramp',0);
+    await set('spread',55);
+    await set('blobs',4);
+    await set('amount',15);
+
     // ================= explore =================
     function tiles(){return document.querySelectorAll('#grid .tile')}
     function tilePx(cv){var d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data,s2=0;
