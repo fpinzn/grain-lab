@@ -16,7 +16,6 @@ trap 'rm -rf "$WORK"' EXIT
 # page:suite pairs. Add a line to cover a new page.
 SUITES=(
   "grain-lab.html:grain-lab.tests.js"
-  "explorer.html:explorer.tests.js"
 )
 
 # Only run the ones asked for, if any were named.

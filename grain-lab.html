@@ -33,35 +33,31 @@
   header .sub{font-size:13px;color:var(--muted)}
   header .sub b{color:var(--accent);font-weight:600}
 
-  /* controls on the left, picture on the right: the timeline has to be visible at
-     the same time as the frame it is changing */
+  /* one rail, one main area; the tabs swap what fills the main area */
   .app{
-    display:grid;grid-template-columns:296px 330px minmax(0,1fr);
+    display:grid;grid-template-columns:296px minmax(0,1fr);
     gap:0;align-items:start;
   }
-  /* Placement is explicit below: with auto-placement a full-width .motion pushes
-     the stage down into the narrow first column. */
-  @media (max-width:1240px){
-    .app{grid-template-columns:296px minmax(0,1fr)}
-    .rail{grid-column:1;grid-row:1}
-    .stage{grid-column:2;grid-row:1}
-    .motion{
-      grid-column:1/-1;grid-row:2;
-      border-right:none;border-top:1px solid var(--line);
-    }
-    /* full width again, so spread the controls out rather than stacking them */
-    .mglobals{flex-direction:row;flex-wrap:wrap;gap:10px 22px}
-    .mglobals .mfield{flex:0 1 auto}
-    .mglobals .mfield input[type=range]{flex:none;width:120px}
-    .mglobals .mfield select{flex:none;width:auto}
-    .tracks{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
+  .main{min-width:0;display:flex;flex-direction:column}
+  @media (max-width:820px){ .app{grid-template-columns:1fr} }
+
+  /* Motion keeps the canvas above it, so you can still see what the timeline is
+     doing. Explore replaces the canvas with the grid. */
+  body[data-view="design"] .view-explore,
+  body[data-view="design"] .view-motion,
+  body[data-view="motion"] .view-explore,
+  body[data-view="explore"] .view-stage,
+  body[data-view="explore"] .view-motion{display:none}
+
+  .tabs{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .tabs button{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;
+    border:none;border-radius:0;padding:7px 15px;
+    background:var(--panel-2);color:var(--muted);cursor:pointer;
   }
-  @media (max-width:820px){
-    .app{grid-template-columns:1fr}
-    .rail{grid-column:1;grid-row:1}
-    .stage{grid-column:1;grid-row:2}       /* picture before the timeline */
-    .motion{grid-column:1;grid-row:3}
-  }
+  .tabs button:hover{color:var(--ink)}
+  .tabs button[aria-pressed=true]{background:var(--accent);color:#141419;font-weight:600}
+  .tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 
   /* ---------- control rail ---------- */
   .rail{
@@ -143,9 +139,10 @@
   .seed b{color:var(--muted);font-weight:400}
   .grouphint{font-size:10.5px;color:var(--faint);line-height:1.5;margin:0;letter-spacing:.04em}
 
-  /* mode gates: each mode hides the controls that cannot act on it */
-  body[data-mode="gradient"] .shapes-only{display:none}
+  /* the gradient controls only matter on a gradient ground; the shape editor only
+     matters when there is at least one layer */
   body[data-mode="shapes"] .gradient-only{display:none}
+  body[data-shapes="no"] .shapes-only{display:none}
   .modepick button{flex:1}
   .modepick{display:flex;width:100%}
 
@@ -163,13 +160,21 @@
   .savedimg[hidden]{display:none}
 
   /* ---------- stage ---------- */
-  .stage{
-    padding:28px;display:flex;flex-direction:column;gap:14px;align-items:center;
+  .view-stage{
+    padding:26px 28px 30px;display:flex;flex-direction:column;gap:14px;align-items:center;
   }
+  /* The width cap lives on the wrapper, NOT on the padded frame. Percentage padding
+     resolves against the CONTAINING BLOCK, so a max-width on the frame itself makes
+     the gutter stop matching the frame and throws the overlay out of register. */
+  .stage-wrap{width:100%;max-width:1100px}
+  /* In motion the canvas shares the screen with the timeline, and a square or
+     vertical frame would otherwise push the tracks below the fold. Scaling the
+     wrapper (not the canvas) keeps the overlay in register. */
+  body[data-view="motion"] .stage-wrap{max-width:520px}
   /* the frame carries a gutter around the artboard: control points routinely sit
      outside the image and still have to be visible and grabbable. Percentage
      padding resolves against width on every side, so the gutter stays square. */
-  .stage-frame{position:relative;width:100%;max-width:1100px;padding:6.4%}
+  .stage-frame{position:relative;width:100%;padding:6.4%}
   .canvas-clip{
     /* box-shadow, not border: a border would inset the canvas inside the frame and
        throw the overlay a pixel out of register with the pixels it points at */
@@ -215,13 +220,18 @@
   .hint b{color:var(--muted);font-weight:400}
 
   /* ---------- motion ---------- */
-  .motion{
-    border-right:1px solid var(--line);
-    padding:20px 20px 30px;
+  .view-motion{
+    border-top:1px solid var(--line);
+    padding:20px 28px 34px;
     display:flex;flex-direction:column;gap:14px;
     font-family:var(--mono);
     min-width:0;
   }
+  .view-motion .mglobals{flex-direction:row;flex-wrap:wrap;gap:10px 22px}
+  .view-motion .mglobals .mfield{flex:0 1 auto}
+  .view-motion .mglobals .mfield input[type=range]{flex:none;width:130px}
+  .view-motion .mglobals .mfield select{flex:none;width:auto}
+  .view-motion .tracks{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
   .motion h2{
     font-size:10.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;
     color:var(--faint);margin:0;
@@ -311,6 +321,65 @@
   }
   .savedvideo[hidden]{display:none}
 
+  /* ---------- explore ---------- */
+  .view-explore{padding:22px 28px 50px;display:flex;flex-direction:column;gap:16px;min-width:0}
+  .axisbar{
+    display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;
+    font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  }
+  .axisbar .f{display:flex;align-items:center;gap:8px}
+  .axisbar select{flex:none;padding:7px 9px}
+  .crumbs{
+    display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+    font-family:var(--mono);font-size:10.5px;color:var(--faint);
+  }
+  .crumbs b{color:var(--muted);font-weight:400}
+  .gridwrap{overflow-x:auto}
+  table.grid{border-collapse:separate;border-spacing:0;font-family:var(--mono)}
+  table.grid th{
+    font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);padding:4px 8px;white-space:nowrap;font-variant-numeric:tabular-nums;
+  }
+  table.grid th.corner{text-align:right;color:var(--muted)}
+  table.grid td{padding:3px}
+  .tile{
+    position:relative;display:block;padding:0;border:1px solid var(--line);
+    border-radius:8px;overflow:hidden;background:#000;line-height:0;cursor:pointer;
+  }
+  .tile canvas{display:block}
+  .tile:hover{border-color:var(--faint)}
+  .tile[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .tile .tag{
+    position:absolute;left:0;right:0;bottom:0;
+    font-size:9px;letter-spacing:.04em;color:#fff;
+    background:linear-gradient(transparent,rgba(0,0,0,.72));
+    padding:12px 5px 3px;line-height:1.2;text-align:center;
+    opacity:0;transition:opacity .12s;
+  }
+  .tile:hover .tag,.tile[aria-pressed=true] .tag{opacity:1}
+  @media (prefers-reduced-motion:reduce){ .tile .tag{transition:none} }
+  .detail{
+    display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;
+    border-top:1px solid var(--line);padding-top:18px;
+  }
+  .detail .big{
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    background:#000;line-height:0;flex:none;
+  }
+  .detail .meta{
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    display:flex;flex-direction:column;gap:9px;min-width:230px;
+  }
+  .detail .meta dl{
+    margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 14px;
+    font-variant-numeric:tabular-nums;
+  }
+  .detail .meta dt{color:var(--faint)}
+  .detail .meta dd{margin:0;color:var(--ink)}
+  .note{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin:0;line-height:1.5}
+  .note.ok{color:var(--muted)}
+  .note.err{color:var(--accent)}
+
   /* ---------- method write-up ---------- */
   .method{
     border-top:1px solid var(--line);
@@ -355,6 +424,9 @@
 
 <header>
   <h1>Grain Lab</h1>
+  <nav class="tabs" aria-label="View">
+    <button id="tabDesign" type="button" aria-pressed="true">design</button><button id="tabExplore" type="button" aria-pressed="false">explore</button><button id="tabMotion" type="button" aria-pressed="false">motion</button>
+  </nav>
   <span class="sub">grainy-gradient generator · parameters measured from your reference images, <b>method below</b></span>
 </header>
 
@@ -362,10 +434,11 @@
   <aside class="rail">
 
     <div class="group">
-      <h2>Mode</h2>
+      <h2>Background</h2>
       <span class="posepick modepick">
-        <button id="modeShapes" type="button" aria-pressed="true">shapes</button><button id="modeGradient" type="button" aria-pressed="false">gradient</button>
+        <button id="modeShapes" type="button" aria-pressed="true">flat</button><button id="modeGradient" type="button" aria-pressed="false">gradient</button>
       </span>
+      <p class="grouphint">shapes layer over either ground — set layers to 0 for the ground alone.</p>
     </div>
 
     <div class="group">
@@ -383,13 +456,15 @@
       <h2>Gradient</h2>
       <div class="row"><label for="gcount">colours</label><input type="range" id="gcount" min="2" max="4" step="1" value="4"><span class="val" id="gcount-v">4</span></div>
       <div class="row"><label for="steps">steps</label><input type="range" id="steps" min="2" max="64" step="1" value="6"><span class="val" id="steps-v">6</span></div>
+      <div class="row"><label for="mid">band pos</label><input type="range" id="mid" min="8" max="92" step="1" value="50"><span class="val" id="mid-v">50%</span></div>
+      <div class="row"><label for="angle">angle</label><input type="range" id="angle" min="0" max="180" step="5" value="0"><span class="val" id="angle-v">0°</span></div>
       <label class="check"><input type="checkbox" id="smooth"> smooth ramp (ignore steps)</label>
-      <p class="grouphint">c1 at the top through c4 at the bottom, filling the frame.</p>
+      <p class="grouphint">c1 through c4 across the frame; band pos slides the interior colours.</p>
     </div>
 
-    <div class="group shapes-only">
-      <h2>Form</h2>
-      <div class="row"><label for="blobs">layers</label><input type="range" id="blobs" min="1" max="7" step="1" value="4"><span class="val" id="blobs-v">4</span></div>
+    <div class="group">
+      <h2>Shapes</h2>
+      <div class="row"><label for="blobs">layers</label><input type="range" id="blobs" min="0" max="7" step="1" value="4"><span class="val" id="blobs-v">4</span></div>
       <div class="row"><label for="soft">edge blur</label><input type="range" id="soft" min="0.1" max="4" step="0.1" value="0.8"><span class="val" id="soft-v">0.8%</span></div>
       <div class="row"><label for="enoise">edge dissolve</label><input type="range" id="enoise" min="0" max="100" step="1" value="60"><span class="val" id="enoise-v">60</span></div>
       <div class="row"><label for="contrast">contrast</label><input type="range" id="contrast" min="0" max="100" step="1" value="70"><span class="val" id="contrast-v">70</span></div>
@@ -424,16 +499,28 @@
     </div>
 
     <div class="group">
-      <h2>Export</h2>
-      <div class="row"><label for="aspect">aspect</label>
+      <h2>Frame</h2>
+      <div class="row"><label for="aspect">shape</label>
         <select id="aspect">
-          <option value="1.5" selected>3 : 2</option>
-          <option value="1">1 : 1</option>
-          <option value="1.7778">16 : 9</option>
-          <option value="0.75">3 : 4</option>
-          <option value="3">3 : 1 banner</option>
+          <optgroup label="icon">
+            <option value="1">1 : 1 square</option>
+          </optgroup>
+          <optgroup label="background">
+            <option value="1.5" selected>3 : 2</option>
+            <option value="1.3333">4 : 3</option>
+            <option value="1.7778">16 : 9</option>
+            <option value="0.5625">9 : 16 vertical</option>
+            <option value="0.75">3 : 4</option>
+            <option value="3">3 : 1 banner</option>
+          </optgroup>
         </select>
       </div>
+      <label class="check"><input type="checkbox" id="rounded"> icon mask (rounded corners)</label>
+      <p class="grouphint">the mask applies to the preview, the tiles and the export.</p>
+    </div>
+
+    <div class="group">
+      <h2>Export</h2>
       <div class="row"><label for="scale">resolution</label>
         <select id="scale">
           <option value="1">1× · 1440 px</option>
@@ -449,7 +536,57 @@
 
   </aside>
 
-  <aside class="motion">
+  <main class="main">
+  <section class="view view-stage">
+    <div class="stage-wrap">
+      <div class="stage-frame">
+        <div class="canvas-clip"><canvas id="view"></canvas></div>
+        <svg class="ov" id="ov" aria-label="Shape editor overlay"></svg>
+      </div>
+    </div>
+    <div class="chips shapes-only" id="chips"></div>
+    <p class="hint shapes-only">click a shape to select · drag <b>◆</b> to move it · drag <b>●</b> to bend the curve ·
+    arrow keys nudge a focused point, <b>shift</b> for bigger steps · handles never reach the export</p>
+    <span class="stage-note" id="dims"></span>
+  </section>
+
+  <section class="view view-explore">
+    <div class="axisbar">
+      <span class="f"><label for="ax">x axis</label><select id="ax"></select></span>
+      <span class="f"><label for="ay">y axis</label><select id="ay"></select></span>
+      <span class="f"><label for="gridn">grid</label>
+        <select id="gridn">
+          <option value="3">3 × 3</option>
+          <option value="4">4 × 4</option>
+          <option value="5" selected>5 × 5</option>
+          <option value="6">6 × 6</option>
+        </select></span>
+      <span class="f"><label for="tile">tile</label>
+        <select id="tile">
+          <option value="96">96 px</option>
+          <option value="128" selected>128 px</option>
+          <option value="160">160 px</option>
+        </select></span>
+    </div>
+
+    <div class="crumbs" id="crumbs"></div>
+    <div class="gridwrap"><table class="grid" id="grid"></table></div>
+
+    <div class="detail">
+      <div class="big" id="big"></div>
+      <div class="meta">
+        <div><b id="pickname">nothing selected</b></div>
+        <dl id="pickmeta"></dl>
+        <div class="btnrow">
+          <button id="recentre" type="button" disabled>Centre here</button>
+          <button id="usepick" type="button" disabled>Open in design</button>
+        </div>
+        <p class="note" id="explorenote"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="view view-motion">
     <div class="mhead">
       <h2>Motion</h2>
       <div class="transport">
@@ -498,17 +635,7 @@
 
     <p class="motionnote" id="motionnote"></p>
     <video class="savedvideo" id="savedvideo" hidden controls loop playsinline></video>
-  </aside>
-
-  <main class="stage">
-    <div class="stage-frame">
-      <div class="canvas-clip"><canvas id="view"></canvas></div>
-      <svg class="ov" id="ov" aria-label="Shape editor overlay"></svg>
-    </div>
-    <div class="chips shapes-only" id="chips"></div>
-    <p class="hint shapes-only">click a shape to select · drag <b>◆</b> to move it · drag <b>●</b> to bend the curve ·
-    arrow keys nudge a focused point, <b>shift</b> for bigger steps · handles never reach the export</p>
-    <span class="stage-note" id="dims"></span>
+  </section>
   </main>
 </div>
 
@@ -626,7 +753,11 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     pose:'A',            // which one the editor is currently editing
     shapes:[],           // === poses[pose]; every editor path still works on this
     sel:-1,
-    drag:null
+    drag:null,
+    view:'design',
+    pick:null,
+    exsel:null,
+    history:[]
   };
 
   var $=function(id){return document.getElementById(id)};
@@ -646,7 +777,10 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
       mode:state.mode,
       gcount:+$('gcount').value,
       steps:+$('steps').value,
+      mid:+$('mid').value/100,
+      angle:+$('angle').value,
       smooth:$('smooth').checked,
+      rounded:$('rounded').checked,
       linear:$('linear').checked,
       tension:+$('tension').value/100,
       edit:$('edit').checked,
@@ -737,28 +871,70 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   // A single vertical ramp across the swatches, quantised into flat bands. The ramp
   // is walked in linear light for the same reason the animation lerps there: a
   // straight sRGB blend sags through the middle and muddies the midpoints.
-  function rampColor(cols,t){
+  // Stop positions, tent-warped so the interior colours slide together while the
+  // ends stay pinned. `mid` is "how far along the bright band sits".
+  function stopPositions(n,mid){
+    var P=[];
+    for(var i=0;i<n;i++){
+      var u=n===1?0:i/(n-1);
+      P.push(u<0.5?u*2*mid:mid+(u-0.5)*2*(1-mid));
+    }
+    return P;
+  }
+  function rampColor(cols,P,t){
     if(cols.length===1)return hex2rgb(cols[0]);
-    var x=t*(cols.length-1);
-    var i=Math.max(0,Math.min(cols.length-2,Math.floor(x)));
-    var f=x-i;
-    var A=hex2rgb(cols[i]), B=hex2rgb(cols[i+1]), out=[];
+    var i=0;
+    while(i<cols.length-2&&t>P[i+1])i++;
+    var span=P[i+1]-P[i];
+    var f=span<=0?(t>=P[i+1]?1:0):(t-P[i])/span;
+    f=f<0?0:f>1?1:f;
+    var A=hex2rgb(cols[i]),B=hex2rgb(cols[i+1]),out=[];
     for(var k=0;k<3;k++){
-      var la=srgb2lin(A[k]), lb=srgb2lin(B[k]);
+      var la=srgb2lin(A[k]),lb=srgb2lin(B[k]);
       out.push(lin2srgb(la+(lb-la)*f));
     }
     return out;
   }
   function drawGradient(ctx,w,h,p){
     var cols=p.colors.slice(0,Math.max(2,Math.min(p.colors.length,Math.round(p.gcount))));
-    // smooth is just one band per pixel row — same code path, so the two agree exactly
-    var n=p.smooth?h:Math.max(2,Math.round(p.steps));
+    var P=stopPositions(cols.length,p.mid===undefined?0.5:p.mid);
+    // smooth is one band per pixel row of the span, so the two agree exactly
+    var th=(p.angle||0)*Math.PI/180;
+    // The ramp spans the canvas PROJECTED onto the gradient axis, not the rotation
+    // diagonal — using the diagonal pushes the first and last colours out of frame.
+    var span=Math.abs(w*Math.sin(th))+Math.abs(h*Math.cos(th));
+    var across=Math.abs(w*Math.cos(th))+Math.abs(h*Math.sin(th))+2;
+    var n=p.smooth?Math.ceil(span):Math.max(2,Math.round(p.steps));
+    ctx.save();
+    ctx.translate(w/2,h/2);
+    ctx.rotate(th);
     for(var b=0;b<n;b++){
       var t=n===1?0:b/(n-1);
-      ctx.fillStyle=css(rampColor(cols,t));
-      var y0=Math.floor(b*h/n), y1=Math.floor((b+1)*h/n);
-      if(y1>y0)ctx.fillRect(0,y0,w,y1-y0);
+      ctx.fillStyle=css(rampColor(cols,P,t));
+      var y0=Math.round(-span/2+b*span/n), y1=Math.round(-span/2+(b+1)*span/n);
+      if(b===0)y0-=2;
+      if(b===n-1)y1+=2;
+      if(y1>y0)ctx.fillRect(-across/2,y0,across,y1-y0);
     }
+    ctx.restore();
+  }
+
+  // A rounded-square mask, so an icon crop can be judged in place. Applied to the
+  // preview, the explore tiles and the export alike.
+  function iconMask(ctx,w,h){
+    var r=Math.min(w,h)*0.225;
+    ctx.save();
+    ctx.globalCompositeOperation='destination-in';
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(0,0,w,h,r);
+    else{
+      ctx.moveTo(r,0);ctx.lineTo(w-r,0);ctx.quadraticCurveTo(w,0,w,r);
+      ctx.lineTo(w,h-r);ctx.quadraticCurveTo(w,h,w-r,h);
+      ctx.lineTo(r,h);ctx.quadraticCurveTo(0,h,0,h-r);
+      ctx.lineTo(0,r);ctx.quadraticCurveTo(0,0,r,0);
+    }
+    ctx.closePath();ctx.fill();
+    ctx.restore();
   }
 
   function renderBase(w,h,p,fast,shapes){
@@ -767,10 +943,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     var ctx=c.getContext('2d');
     ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);
 
-    if(p.mode==='gradient'){
-      drawGradient(ctx,w,h,p);
-      return c;
-    }
+    if(p.mode==='gradient')drawGradient(ctx,w,h,p);
 
     var f=frame(w,h), sp=p.spread/100, t=p.tension;
     var lx=Math.cos(state.light), ly=Math.sin(state.light);   // global light direction
@@ -966,6 +1139,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     var d=previewDims(p);
     cachedBase=renderBase(d[0],d[1],p,false);
     compose(p);
+    document.body.dataset.shapes=p.blobs>0?'yes':'no';
     syncChips(p);
     syncTrackFrom();
     syncOverlay(p);
@@ -983,6 +1157,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
       applyGrain(tmp,p,p.gsize);
       vctx.drawImage(tmp,0,0);
     }
+    if(p.rounded)iconMask(vctx,w,h);
   }
   // while dragging: a small proxy with the per-pixel passes switched off, upscaled
   // into the preview. Full quality returns on pointer-up.
@@ -994,6 +1169,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     view.width=d[0];view.height=d[1];
     vctx.imageSmoothingEnabled=true;vctx.imageSmoothingQuality='medium';
     vctx.drawImage(small,0,0,d[0],d[1]);
+    if(p.rounded)iconMask(vctx,d[0],d[1]);
     syncOverlay(p);
   }
   var rafId=0;
@@ -1102,7 +1278,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   }
   function syncOverlay(p){
     p=p||params();
-    if(!p.edit||p.mode==='gradient'){ov.setAttribute('hidden','');return}
+    if(!p.edit||p.blobs<1){ov.setAttribute('hidden','');return}
     ov.removeAttribute('hidden');
     if(!gHit)ovInit();
     if(hitKey!==p.blobs){hitKey=p.blobs;buildHits(p)}
@@ -1277,14 +1453,23 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     {id:'tension', label:'curve tension', kind:'num', modes:['shapes'],   set:function(p,v){p.tension=v/100}},
     {id:'gcount',  label:'gradient colours',kind:'num',modes:['gradient'],set:function(p,v){p.gcount=Math.max(2,Math.round(v))}},
     {id:'steps',   label:'gradient steps',kind:'num', modes:['gradient'], set:function(p,v){p.steps=Math.max(2,Math.round(v))}},
+    {id:'mid',     label:'band pos',      kind:'num', modes:['gradient'], set:function(p,v){p.mid=v/100}},
+    {id:'angle',   label:'gradient angle',kind:'num', modes:['gradient'], set:function(p,v){p.angle=v}},
     {id:'amount',  label:'grain amount',  kind:'num',   set:function(p,v){p.amount=v}},
     {id:'gsize',   label:'grain size',    kind:'num',   set:function(p,v){p.gsize=Math.max(1,Math.round(v))}},
     {id:'chroma',  label:'chroma',        kind:'num',   set:function(p,v){p.chroma=v/100}},
     {id:'shapes',  label:'shape pose',    kind:'pose', modes:['shapes']}
   ];
-  // a track whose property cannot act in the current mode stays in the list but is
-  // shown greyed, rather than silently doing nothing
-  function propActive(def){return !def.modes||def.modes.indexOf(state.mode)>=0}
+  // A track whose property cannot act right now stays in the list but is shown
+  // greyed rather than silently doing nothing. Shapes are no longer an exclusive
+  // mode, so shape properties are live whenever there is at least one layer,
+  // whichever ground is underneath.
+  function propActive(def){
+    if(!def.modes)return true;
+    if(def.modes.indexOf('gradient')>=0)return state.mode==='gradient';
+    if(def.modes.indexOf('shapes')>=0)return +$('blobs').value>0;
+    return true;
+  }
   function propDef(id){
     for(var i=0;i<ANIM_PROPS.length;i++)if(ANIM_PROPS[i].id===id)return ANIM_PROPS[i];
     return null;
@@ -1373,6 +1558,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     var c=renderBase(w,h,p,fast,animShapes(phase));
     // keep the grain cell the same relative size as in the preview
     if(!fast&&p.amount>0)applyGrain(c,p,Math.max(1,Math.round(p.gsize*w/state.baseW)));
+    if(p.rounded)iconMask(c.getContext('2d'),w,h);
     return c;
   }
 
@@ -1891,7 +2077,8 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     invalidate();
     chipKey='';                 // chips and tracks both depend on the mode
     rebuildTracks();
-    fullRender();
+    if(state.view==='explore'){fillAxisSelects();buildGrid()}
+    else fullRender();
   }
   function setPose(which){
     if(state.pose===which)return;
@@ -1903,36 +2090,305 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     fullRender();
   }
 
+  // ---------- explore ----------
+  // The same parameters, swept two at a time. Everything not on an axis is held at
+  // whatever the rail says, so each screen is a plane through the space rather
+  // than a pile of unrelated variants.
+  var AXES=[
+    {id:'steps',   label:'steps',    family:'ramp',  lo:2,  hi:40, gradientOnly:true},
+    {id:'mid',     label:'band pos', family:'ramp',  lo:12, hi:88, gradientOnly:true,fmt:function(v){return Math.round(v)+'%'}},
+    {id:'angle',   label:'angle',    family:'ramp',  lo:0,  hi:180,gradientOnly:true,fmt:function(v){return Math.round(v)+'°'}},
+    {id:'gcount',  label:'colours',  family:'ramp',  lo:2,  hi:4,  gradientOnly:true},
+    {id:'amount',  label:'grain σ',  family:'grain', lo:0,  hi:34},
+    {id:'gsize',   label:'grain px', family:'grain', lo:1,  hi:4,  fmt:function(v){return Math.round(v)+'px'}},
+    {id:'chroma',  label:'chroma',   family:'grain', lo:0,  hi:100},
+    {id:'blobs',   label:'layers',   family:'form',  lo:0,  hi:6},
+    {id:'soft',    label:'edge blur',family:'form',  lo:0.2,hi:4,  fmt:function(v){return v.toFixed(1)+'%'}},
+    {id:'enoise',  label:'dissolve', family:'form',  lo:0,  hi:100},
+    {id:'contrast',label:'contrast', family:'form',  lo:0,  hi:100},
+    {id:'rim',     label:'rim light',family:'form',  lo:0,  hi:100},
+    {id:'spread',  label:'spread',   family:'form',  lo:0,  hi:100},
+    {id:'tension', label:'tension',  family:'form',  lo:0,  hi:100}
+  ];
+  var AXINT={steps:1,gcount:1,gsize:1,blobs:1,angle:1};
+  function axFmt(d,v){return d.fmt?d.fmt(v):String(Math.round(v*100)/100)}
+  function axisDef(id){
+    for(var i=0;i<AXES.length;i++)if(AXES[i].id===id)return AXES[i];
+    return AXES[4];
+  }
+  function axisUsable(d){return !d.gradientOnly||state.mode==='gradient'}
+
+  var grid={xs:[],ys:[],dx:null,dy:null,p:null,cells:[]};
+  var exDrag=false;
+
+  function withAxis(p,def,v){
+    var q={},k;
+    for(k in p)if(Object.prototype.hasOwnProperty.call(p,k))q[k]=p[k];
+    var val=AXINT[def.id]?Math.round(v):v;
+    if(def.id==='mid')q.mid=val/100;
+    else if(def.id==='chroma')q.chroma=val/100;
+    else if(def.id==='tension')q.tension=val/100;
+    else q[def.id]=val;
+    return q;
+  }
+  function axisValues(def,n){
+    var out=[],i;
+    for(i=0;i<n;i++){
+      var t=n===1?0.5:i/(n-1);
+      var v=def.lo+(def.hi-def.lo)*t;
+      out.push(AXINT[def.id]?Math.round(v):Math.round(v*100)/100);
+    }
+    if(AXINT[def.id]){                        // collapse repeats on short int axes
+      var seen={},uniq=[];
+      for(i=0;i<out.length;i++)if(!seen[out[i]]){seen[out[i]]=1;uniq.push(out[i])}
+      out=uniq;
+    }
+    return out;
+  }
+  function tileCanvas(q,size){
+    var d=previewDims(q);
+    var res=exDrag?Math.max(48,Math.round(size/2)):size;
+    var h=Math.max(1,Math.round(res*d[1]/d[0]));
+    var c=renderBase(res,h,q,false,animShapes(0));
+    if(q.amount>0)applyGrain(c,q,Math.max(1,Math.round(q.gsize*res/state.baseW)));
+    if(q.rounded)iconMask(c.getContext('2d'),res,h);
+    if(res!==size){c.style.width=size+'px';c.style.height=Math.round(size*d[1]/d[0])+'px'}
+    return c;
+  }
+  function exnote(msg,kind){
+    var n=$('explorenote');
+    n.textContent=msg||'';
+    n.className='note'+(kind?' '+kind:'');
+  }
+
+  function buildGrid(){
+    if(state.view!=='explore')return;
+    var p=params();
+    var dx=axisDef($('ax').value), dy=axisDef($('ay').value);
+    var n=+$('gridn').value, size=+$('tile').value;
+    var xs=axisValues(dx,n), ys=axisValues(dy,n);
+    grid={xs:xs,ys:ys,dx:dx,dy:dy,p:p,cells:[]};
+    var table=$('grid');
+    while(table.firstChild)table.removeChild(table.firstChild);
+
+    var head=document.createElement('tr');
+    var corner=document.createElement('th');
+    corner.className='corner';
+    corner.textContent=dy.label+' ↓ / '+dx.label+' →';
+    head.appendChild(corner);
+    for(var i=0;i<xs.length;i++){
+      var th=document.createElement('th');
+      th.textContent=axFmt(dx,xs[i]);
+      head.appendChild(th);
+    }
+    table.appendChild(head);
+
+    for(var r=0;r<ys.length;r++){
+      (function(r){
+        var tr=document.createElement('tr');
+        var rh=document.createElement('th');
+        rh.className='corner';
+        rh.textContent=axFmt(dy,ys[r]);
+        tr.appendChild(rh);
+        for(var c2=0;c2<xs.length;c2++){
+          (function(c2){
+            var q=withAxis(withAxis(p,dx,xs[c2]),dy,ys[r]);
+            var td=document.createElement('td');
+            var b=document.createElement('button');
+            b.type='button';b.className='tile';
+            b.setAttribute('aria-pressed','false');
+            b.setAttribute('aria-label',dx.label+' '+axFmt(dx,xs[c2])+', '+dy.label+' '+axFmt(dy,ys[r]));
+            b.appendChild(tileCanvas(q,size));
+            var tag=document.createElement('span');
+            tag.className='tag';
+            tag.textContent=axFmt(dx,xs[c2])+' · '+axFmt(dy,ys[r]);
+            b.appendChild(tag);
+            b.addEventListener('click',function(){selectCell(r,c2)});
+            grid.cells.push({r:r,c:c2,el:b});
+            td.appendChild(b);
+            tr.appendChild(td);
+          })(c2);
+        }
+        table.appendChild(tr);
+      })(r);
+    }
+    // Re-apply the selection against the NEW params, so the detail panel and the
+    // export never serve the image from before the edit.
+    // state.sel is the shape editor's blob index; the grid cell is state.exsel
+    if(state.exsel&&state.exsel.r<ys.length&&state.exsel.c<xs.length)selectCell(state.exsel.r,state.exsel.c);
+    else if(state.exsel)clearPick();
+  }
+  function cellEl(r,c){
+    for(var i=0;i<grid.cells.length;i++)
+      if(grid.cells[i].r===r&&grid.cells[i].c===c)return grid.cells[i].el;
+    return null;
+  }
+  function clearPick(){
+    state.exsel=null;state.pick=null;
+    $('pickname').textContent='nothing selected';
+    var big=$('big'),dl=$('pickmeta');
+    while(big.firstChild)big.removeChild(big.firstChild);
+    while(dl.firstChild)dl.removeChild(dl.firstChild);
+    $('recentre').disabled=true;
+    $('usepick').disabled=true;
+  }
+  function selectCell(r,c){
+    state.exsel={r:r,c:c};
+    var q=withAxis(withAxis(grid.p,grid.dx,grid.xs[c]),grid.dy,grid.ys[r]);
+    state.pick=q;
+    var all=document.querySelectorAll('.tile'),i;
+    for(i=0;i<all.length;i++)all[i].setAttribute('aria-pressed','false');
+    var el=cellEl(r,c);
+    if(el)el.setAttribute('aria-pressed','true');
+    $('pickname').textContent=grid.dx.label+' '+axFmt(grid.dx,grid.xs[c])+
+                              '  ·  '+grid.dy.label+' '+axFmt(grid.dy,grid.ys[r]);
+    var big=$('big');
+    while(big.firstChild)big.removeChild(big.firstChild);
+    big.appendChild(tileCanvas(q,256));
+    var dl=$('pickmeta');
+    while(dl.firstChild)dl.removeChild(dl.firstChild);
+    var rows=[['ground',q.mode==='gradient'?'gradient':'flat'],['layers',q.blobs],
+              ['grain σ',q.amount],['grain px',q.gsize],['chroma',Math.round(q.chroma*100)]];
+    if(q.mode==='gradient')rows=rows.concat([['colours',q.gcount],['steps',q.steps],
+              ['band pos',Math.round(q.mid*100)+'%'],['angle',q.angle+'°']]);
+    if(q.blobs>0)rows=rows.concat([['edge blur',q.soft.toFixed(1)+'%'],['dissolve',q.enoise],
+              ['contrast',q.contrast],['rim',q.rim],['spread',q.spread],
+              ['tension',q.tension.toFixed(2)]]);
+    for(var j=0;j<rows.length;j++){
+      var dt=document.createElement('dt');dt.textContent=rows[j][0];
+      var dd=document.createElement('dd');dd.textContent=String(rows[j][1]);
+      dl.appendChild(dt);dl.appendChild(dd);
+    }
+    $('recentre').disabled=false;
+    $('usepick').disabled=false;
+  }
+  // adopt the picked tile as the rail's own settings
+  function adoptPick(){
+    if(!state.pick)return;
+    var q=state.pick;
+    $('steps').value=q.steps;
+    $('mid').value=Math.round(q.mid*100);
+    $('angle').value=q.angle;
+    $('gcount').value=q.gcount;
+    $('amount').value=q.amount;
+    $('gsize').value=q.gsize;
+    $('chroma').value=Math.round(q.chroma*100);
+    $('blobs').value=q.blobs;
+    $('soft').value=q.soft;
+    $('enoise').value=q.enoise;
+    $('contrast').value=q.contrast;
+    $('rim').value=q.rim;
+    $('spread').value=q.spread;
+    $('tension').value=Math.round(q.tension*100);
+    ['blobs','soft','enoise','contrast','rim','spread','tension','amount','gsize','chroma',
+     'gcount','steps','mid','angle'].forEach(function(id){upd(id,fmt[id])});
+    invalidate();
+  }
+  function recentre(){
+    if(!state.pick)return;
+    state.history.push($('pickname').textContent);
+    adoptPick();
+    drawCrumbs();
+    buildGrid();
+    exnote('Centred on that tile — the grid now explores around it.','ok');
+  }
+  function drawCrumbs(){
+    var el=$('crumbs');
+    while(el.firstChild)el.removeChild(el.firstChild);
+    if(!state.history.length)return;
+    el.appendChild(document.createTextNode('path: '));
+    for(var i=0;i<state.history.length;i++){
+      var b=document.createElement('b');
+      b.textContent=state.history[i];
+      el.appendChild(b);
+      if(i<state.history.length-1)el.appendChild(document.createTextNode(' → '));
+    }
+  }
+  function fillAxisSelects(){
+    [['ax','mid'],['ay','amount']].forEach(function(pair){
+      var sel=$(pair[0]);
+      while(sel.firstChild)sel.removeChild(sel.firstChild);
+      var fams=['ramp','grain','form'];
+      for(var f=0;f<fams.length;f++){
+        var og=document.createElement('optgroup');
+        og.label=fams[f];
+        var any=false;
+        for(var i=0;i<AXES.length;i++){
+          if(AXES[i].family!==fams[f]||!axisUsable(AXES[i]))continue;
+          any=true;
+          var o=document.createElement('option');
+          o.value=AXES[i].id;o.textContent=AXES[i].label;
+          if(AXES[i].id===sel.dataset.want||(!sel.dataset.want&&AXES[i].id===pair[1]))o.selected=true;
+          og.appendChild(o);
+        }
+        if(any)sel.appendChild(og);
+      }
+      if(!sel.value&&sel.options.length)sel.selectedIndex=0;
+    });
+  }
+
+  // ---------- views ----------
+  function setView(v){
+    if(state.view===v)return;
+    state.view=v;
+    document.body.dataset.view=v;
+    $('tabDesign').setAttribute('aria-pressed',String(v==='design'));
+    $('tabExplore').setAttribute('aria-pressed',String(v==='explore'));
+    $('tabMotion').setAttribute('aria-pressed',String(v==='motion'));
+    if(v==='explore'){fillAxisSelects();buildGrid()}
+    else{if(anim.playing)stopPlay();fullRender()}
+  }
+
   // ---------- wiring ----------
   function upd(id,f){
     var el=$(id), out=$(id+'-v');
     if(out)out.textContent=(f||function(v){return v})(el.value);
   }
   var fmt={
+    mid:function(v){return v+'%'},
+    angle:function(v){return v+'°'},
     soft:function(v){return(+v).toFixed(1)+'%'},
     gsize:function(v){return v+'px'},
     tension:function(v){return(v/100).toFixed(2)}
   };
 
   var baseIds=['bg','c0','c1','c2','c3','blobs','soft','enoise','contrast','rim','spread','linear','tension','aspect',
-               'gcount','steps','smooth'];
+               'gcount','steps','smooth','mid','angle','rounded'];
   var grainIds=['amount','gsize','chroma','shadow'];
 
+  // one entry point: whichever view is showing gets refreshed
+  function redraw(){
+    if(state.view==='explore')buildGrid();
+    else fullRender();
+  }
   var t=null;
+  baseIds.forEach(function(id){
+    $(id).addEventListener('pointerdown',function(){exDrag=true});
+  });
+  ['pointerup','pointercancel'].forEach(function(ev){
+    window.addEventListener(ev,function(){
+      if(!exDrag)return;
+      exDrag=false;
+      if(state.view==='explore'){clearTimeout(t);buildGrid()}
+    });
+  });
   baseIds.forEach(function(id){
     $(id).addEventListener('input',function(){
       upd(id,fmt[id]);
       invalidate();                 // the rail is pose/value A — a bake is now stale
-      clearTimeout(t);t=setTimeout(fullRender,60);
+      clearTimeout(t);t=setTimeout(redraw,60);
     });
   });
   grainIds.forEach(function(id){
     $(id).addEventListener('input',function(){
       upd(id,fmt[id]);
       invalidate();
-      clearTimeout(t);t=setTimeout(function(){compose()},40);
+      clearTimeout(t);t=setTimeout(function(){
+        if(state.view==='explore')buildGrid();else compose();
+      },40);
     });
   });
+  $('blobs').addEventListener('input',function(){rebuildTracks()});
   $('scale').addEventListener('input',fullRender);
   $('edit').addEventListener('input',function(){syncOverlay()});
 
@@ -1993,6 +2449,22 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   $('poseB').addEventListener('click',function(){setPose('B')});
   $('modeShapes').addEventListener('click',function(){setMode('shapes')});
   $('modeGradient').addEventListener('click',function(){setMode('gradient')});
+
+  $('tabDesign').addEventListener('click',function(){setView('design')});
+  $('tabExplore').addEventListener('click',function(){setView('explore')});
+  $('tabMotion').addEventListener('click',function(){setView('motion')});
+  ['ax','ay','gridn','tile'].forEach(function(id){
+    $(id).addEventListener('input',function(){
+      if(id==='ax'||id==='ay')$(id).dataset.want=$(id).value;
+      buildGrid();
+    });
+  });
+  $('recentre').addEventListener('click',recentre);
+  $('usepick').addEventListener('click',function(){
+    adoptPick();
+    setView('design');
+    exnote('');
+  });
 
   // ---------- export ----------
   // A full-size render blocks the main thread for seconds, and inside the
@@ -2112,6 +2584,7 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
     return paint().then(function(){
       var big=renderBase(w,h,p,false);
       if(p.amount>0)applyGrain(big,p,p.gsize*p.scale);
+      if(p.rounded)iconMask(big.getContext('2d'),w,h);
       status('Encoding PNG …');
       return paint().then(function(){return toBlobAsync(big,'image/png')});
     }).then(function(blob){
@@ -2137,8 +2610,9 @@ ctrl  = lerp( midpoint(start, end), P[i], <span class="a">tension</span> )
   });
 
   ['blobs','soft','enoise','contrast','rim','spread','tension','amount','gsize','chroma',
-   'gcount','steps'].forEach(function(id){upd(id,fmt[id])});
+   'gcount','steps','mid','angle'].forEach(function(id){upd(id,fmt[id])});
   document.body.dataset.mode=state.mode;
+  document.body.dataset.view=state.view;
   var init=genShapes(state.seed);
   state.light=init.light;
   state.poses.A=init.list;

@@ -1,6 +1,6 @@
 # Grain Lab
 
-### ▶ [the lab](https://fpinzn.github.io/grain-lab/) · [the explorer](https://fpinzn.github.io/grain-lab/explorer.html)
+### ▶ [fpinzn.github.io/grain-lab](https://fpinzn.github.io/grain-lab/)
 
 A grainy-gradient generator for brand backgrounds. Soft overlapping colour forms on a
 near-black ground, with a film-grain pass over the top — plus a Bézier shape editor and a
@@ -16,19 +16,23 @@ rendered image for a manual save.
 
 ## What it does
 
-Two modes share the same palette, grain, motion and export.
+One page, three tabs — **design**, **explore**, **motion** — all driving the same
+parameters.
 
-**Shapes** — soft overlapping forms on a near-black ground: layer count, edge blur and
-dissolve, contrast, rim light, spread, radial or linear fills.
+**Ground.** Either flat colour or a gradient: one ramp across the swatches, at any angle,
+quantised into a set number of flat bands (or smooth, with no banding). **Band pos** slides
+the interior colours along the ramp. The ramp is walked in linear light, so a
+magenta-to-orange sweep keeps its saturation through the middle instead of sagging grey.
 
-**Gradient** — one vertical ramp filling the frame, walked across the swatches from c1 at
-the top to c4 at the bottom, quantised into a set number of flat bands. Two colours or
-four; two steps or sixty-four; or a smooth ramp with no banding at all. The ramp is walked
-in linear light, so a magenta-to-orange sweep keeps its saturation through the middle
-instead of sagging grey.
+**Shapes** layer over either ground — soft overlapping forms with edge blur and dissolve,
+contrast, rim light, spread, and a Bézier editor. Set layers to 0 for the bare ground.
 
-**Both.** Grain amount / cell size / chroma with shadow protection. PNG export at 1×–3×
-(up to 4320 × 2880) in five aspect ratios.
+**Frame** covers icons and backgrounds alike: 1:1, 3:2, 4:3, 16:9, 9:16 vertical, 3:4 and
+a 3:1 banner, with an independent icon mask that rounds the corners in the preview, the
+explore tiles and the export.
+
+**Grain** — amount, cell size, chroma, with shadow protection. PNG export at 1×–3×, up to
+4320 × 2880.
 
 **Shapes.** Each silhouette is a closed quadratic Bézier spline. Click a shape to select
 it, drag the ◆ grip to move it, drag the ● control points to bend the curve. Arrow keys
@@ -44,15 +48,15 @@ played back and recorded to WebM.
 
 ## The explorer
 
-`explorer.html` is for finding a background rather than finishing one — squares, sized
-for an app icon, in a grid you navigate.
+The **explore** tab is for finding a background rather than finishing one — the same
+parameters swept two at a time, in a grid you navigate.
 
 The space has three families of axes, and only a few in each actually change an icon:
 
 | family | axes | what it moves |
 |---|---|---|
 | **ramp** | steps · band pos · angle · stops | the gradient — banding, where the bright band sits, direction |
-| **form** | layers · blur · dissolve · contrast · rim · spread · opacity | soft blob structure over the ramp |
+| **form** | layers · blur · dissolve · contrast · rim · spread · tension | soft blob structure over the ground |
 | **grain** | σ · cell size · chroma | texture, and the one that behaves differently at icon size |
 
 Everything updates live: change any parameter and the whole grid re-renders, carrying the
@@ -65,12 +69,7 @@ through the space instead of a random pile. Click a tile to inspect it; **centre
 adopts it as the new middle and re-spreads the axes around it, which is how you walk
 toward something rather than restarting each time. The path you took is kept above the
 grid. Tiles carry a rounded icon mask so you are judging the crop you will actually ship,
-and any tile exports at 512 × 512.
-
-**Palettes** come from your own references: drop an image on the palette panel and it
-finds the gradient columns, samples each one at four heights, and adds them as presets.
-The built-in presets are eyeballed from a screenshot and are only a starting point —
-prefer dropping the real file.
+and **open in design** hands the picked tile back to the canvas to finish and export.
 
 **band pos** deserves a note, because it replaced a worse idea. Reparametrising the ramp
 with `pow(t, k)` seemed natural but squeezed the first colour into a sliver and inverted

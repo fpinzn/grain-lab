@@ -55,18 +55,33 @@
   }
 
   try{
-    // ================= layout =================
+    // ================= views =================
     var app=getComputedStyle(document.querySelector('.app')).gridTemplateColumns.split(' ');
-    t('app has three columns',app.length===3,app.join(' | '));
-    var railR=document.querySelector('.rail').getBoundingClientRect();
-    var motR=document.querySelector('.motion').getBoundingClientRect();
-    var stgR=document.querySelector('.stage').getBoundingClientRect();
-    t('motion sits between the rail and the picture',
-      motR.left>=railR.right-1&&stgR.left>=motR.right-1,
-      'rail '+Math.round(railR.right)+' motion '+Math.round(motR.left)+'-'+Math.round(motR.right)+
-      ' stage '+Math.round(stgR.left));
-    t('picture shares the viewport with the timeline',
-      stgR.top<motR.bottom&&stgR.width>320,'stage width '+Math.round(stgR.width));
+    t('rail plus one main area',app.length===2,app.join(' | '));
+    t('design is the default view',document.body.dataset.view==='design'&&
+      $('tabDesign').getAttribute('aria-pressed')==='true');
+    function shown(sel){return getComputedStyle(document.querySelector(sel)).display!=='none'}
+    t('design shows only the canvas',
+      shown('.view-stage')&&!shown('.view-explore')&&!shown('.view-motion'));
+
+    $('tabMotion').click(); await sleep(400);
+    t('motion keeps the canvas visible above the timeline',
+      shown('.view-stage')&&shown('.view-motion')&&!shown('.view-explore'));
+    t('motion shrinks the canvas so the timeline is reachable',
+      document.querySelector('.stage-wrap').getBoundingClientRect().width<=520,
+      'wrap '+Math.round(document.querySelector('.stage-wrap').getBoundingClientRect().width));
+    var mo=document.querySelector('.view-motion').getBoundingClientRect();
+    t('the timeline starts within a normal viewport',mo.top<820,'top '+Math.round(mo.top));
+    t('motion tab is a plain tab, not gated',$('tabMotion').getAttribute('aria-pressed')==='true');
+
+    $('tabExplore').click(); await sleep(600);
+    t('explore replaces the canvas with the grid',
+      shown('.view-explore')&&!shown('.view-stage')&&!shown('.view-motion'));
+    t('explore builds a grid of tiles',document.querySelectorAll('#grid .tile').length>=9,
+      'tiles '+document.querySelectorAll('#grid .tile').length);
+
+    $('tabDesign').click(); await sleep(400);
+    t('returning to design restores the canvas',shown('.view-stage')&&!shown('.view-explore'));
 
     // ================= editor =================
     t('renders at preview size',view.width===1440&&view.height===960&&px()>0);
@@ -194,18 +209,23 @@
     await set('amount',0);           // exact colours, no grain
     var shapesPx=px();
     $('modeGradient').click(); await sleep(600);
-    t('mode switch flips the body flag and the buttons',
+    t('ground switch flips the body flag and the buttons',
       document.body.dataset.mode==='gradient'&&
       $('modeGradient').getAttribute('aria-pressed')==='true'&&
       $('modeShapes').getAttribute('aria-pressed')==='false');
-    t('gradient controls appear, shape controls hide',
-      getComputedStyle(document.querySelector('.gradient-only')).display!=='none'&&
-      getComputedStyle(document.querySelector('.shapes-only')).display==='none');
-    t('gradient render replaces the shapes render',px()!==shapesPx);
-    t('shape handles are hidden in gradient mode',ov.hasAttribute('hidden'));
+    t('gradient controls appear on a gradient ground',
+      getComputedStyle(document.querySelector('.gradient-only')).display!=='none');
+    t('gradient ground changes the render',px()!==shapesPx);
+    t('shapes still layer over the gradient',ov.hasAttribute('hidden')===false&&
+      ov.querySelectorAll('.hit').length>0);
+    await set('blobs',0);
+    t('layers 0 leaves the ground alone',ov.hasAttribute('hidden')&&
+      getComputedStyle(document.querySelector('#chips')).display==='none');
 
     await set('gcount',4);
     await set('smooth',false);
+    await set('angle',0);
+    await set('mid',50);
     await set('steps',6);
     t('steps renders exactly that many bands',bandCount()===6,'got '+bandCount());
     await set('steps',3);
@@ -229,19 +249,125 @@
       near(pixAt(2),hexToRgb($('c0').value),2)&&near(pixAt(view.height-2),hexToRgb($('c3').value),2));
     await set('smooth',false);
 
+    function trackFor(id){
+      var rows=document.querySelectorAll('#tracks .track .tname');
+      for(var i=0;i<rows.length;i++)if(rows[i].textContent.indexOf(id)>=0)return true;
+      return false;
+    }
     var gopts=[].map.call($('addprop').options,function(o){return o.value}).filter(Boolean);
-    t('gradient mode offers steps and colours to the timeline',
+    t('gradient ground offers steps and colours to the timeline',
       gopts.indexOf('steps')>=0&&gopts.indexOf('gcount')>=0);
-    t('gradient mode withholds the shape-only properties',
-      gopts.indexOf('spread')<0&&gopts.indexOf('shapes')<0&&gopts.indexOf('tension')<0);
-    t('a track that cannot act in this mode is greyed, not silently dead',
+    t('shape properties stay animatable over a gradient ground',
+      gopts.indexOf('spread')>=0||!!trackFor('spread'));
+    await set('blobs',0);
+    var noshape=[].map.call($('addprop').options,function(o){return o.value}).filter(Boolean);
+    t('with no layers the shape properties drop out',
+      noshape.indexOf('spread')<0&&noshape.indexOf('shapes')<0&&noshape.indexOf('tension')<0);
+    t('an existing shape track is greyed rather than silently dead',
       !!document.querySelector('#tracks .track.inactive'));
+    await set('blobs',4);
 
+    await set('blobs',4);
     $('modeShapes').click(); await sleep(600);
-    t('switching back restores the shapes render',px()===shapesPx);
-    t('shape controls come back',
-      getComputedStyle(document.querySelector('.shapes-only')).display!=='none');
+    t('switching back to a flat ground restores the render',px()===shapesPx);
+    t('the shape editor comes back with the layers',
+      getComputedStyle(document.querySelector('#chips')).display!=='none');
     await set('amount',15);
+
+    // ================= explore =================
+    function tiles(){return document.querySelectorAll('#grid .tile')}
+    function tilePx(cv){var d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data,s2=0;
+      for(var i=0;i<d.length;i+=97)s2+=d[i];return s2}
+
+    // a gradient ground with shapes over it: every axis family is live at once
+    $('modeGradient').click(); await sleep(500);
+    await set('blobs',2);
+    $('tabExplore').click(); await sleep(700);
+    t('explore renders a 5x5 grid by default',tiles().length===25,'got '+tiles().length);
+    t('tiles are 128px wide',tiles()[0].querySelector('canvas').width===128);
+    t('tiles differ across the plane',
+      tilePx(tiles()[0].querySelector('canvas'))!==tilePx(tiles()[24].querySelector('canvas')));
+    t('axes are labelled on both edges',
+      /↓/.test(document.querySelectorAll('#grid th')[0].textContent));
+
+    await set('gridn','3');
+    t('grid size control works',tiles().length===9,'got '+tiles().length);
+    await set('gridn','5');
+    await set('tile','96');
+    t('tile size control works',tiles()[0].querySelector('canvas').width===96);
+    await set('tile','128');
+
+    var beforeAxis=tilePx(tiles()[4].querySelector('canvas'));
+    await set('ax','angle');
+    t('changing an axis rebuilds the plane',tilePx(tiles()[4].querySelector('canvas'))!==beforeAxis);
+    await set('ax','mid');
+
+    // form axes are offered alongside ramp and grain, so shapes can be swept too
+    var axopts=[].map.call($('ax').options,function(o){return o.value}).filter(Boolean);
+    t('all three families are on offer',
+      axopts.indexOf('mid')>=0&&axopts.indexOf('amount')>=0&&axopts.indexOf('spread')>=0);
+
+    tiles()[9].click(); await sleep(300);
+    t('clicking a tile selects it',tiles()[9].getAttribute('aria-pressed')==='true');
+    t('detail shows a preview and the parameters',
+      !!$('big').querySelector('canvas')&&$('pickmeta').children.length>=10);
+    t('travel buttons enable on a pick',
+      $('recentre').disabled===false&&$('usepick').disabled===false);
+
+    // live update: any rail edit must refresh the tiles AND carry the selection
+    var nameBefore=$('pickname').textContent;
+    var bigBefore=tilePx($('big').querySelector('canvas'));
+    await set('steps',9);
+    t('a rail edit refreshes the grid and keeps the cell selected',
+      tiles()[9].getAttribute('aria-pressed')==='true'&&$('pickname').textContent===nameBefore);
+    t('a rail edit refreshes the detail preview',
+      tilePx($('big').querySelector('canvas'))!==bigBefore);
+
+    // dragging a control drops to half resolution, releasing restores it
+    var sl=$('steps');
+    sl.dispatchEvent(new PointerEvent('pointerdown',{pointerId:1,bubbles:true,cancelable:true,isPrimary:true}));
+    sl.value=30; sl.dispatchEvent(new Event('input',{bubbles:true}));
+    await sleep(300);
+    t('dragging halves the tile resolution',tiles()[0].querySelector('canvas').width===64,
+      'width '+tiles()[0].querySelector('canvas').width);
+    window.dispatchEvent(new PointerEvent('pointerup',{pointerId:1,bubbles:true,cancelable:true,isPrimary:true}));
+    await sleep(400);
+    t('releasing restores full resolution',tiles()[0].querySelector('canvas').width===128,
+      'width '+tiles()[0].querySelector('canvas').width);
+
+    // travel
+    var midBefore=$('mid').value;          // the x axis is band pos, so that is what moves
+    tiles()[14].click(); await sleep(300);
+    $('recentre').click(); await sleep(600);
+    t('centre here adopts the tile into the rail',$('mid').value!==midBefore,
+      midBefore+' -> '+$('mid').value);
+    t('the path is recorded',/path:/.test($('crumbs').textContent));
+
+    // open in design hands the pick back to the canvas
+    tiles()[6].click(); await sleep(300);
+    $('usepick').click(); await sleep(600);
+    t('open in design switches view',document.body.dataset.view==='design');
+
+    // frame + icon mask reach the tiles and the canvas
+    await set('aspect','1');
+    await set('rounded',true);
+    t('icon mask rounds the canvas corners',
+      view.getContext('2d').getImageData(1,1,1,1).data[3]===0);
+    t('square frame makes a square canvas',view.width===view.height,view.width+'x'+view.height);
+    $('tabExplore').click(); await sleep(700);
+    t('the mask reaches the tiles too',
+      tiles()[0].querySelector('canvas').getContext('2d').getImageData(1,1,1,1).data[3]===0);
+    await set('rounded',false);
+    t('mask off fills the corners again',
+      tiles()[0].querySelector('canvas').getContext('2d').getImageData(1,1,1,1).data[3]===255);
+
+    $('tabDesign').click(); await sleep(500);   // the canvas only re-renders in design
+    await set('aspect','0.5625');
+    t('vertical 16:9 is available and taller than wide',view.height>view.width,
+      view.width+'x'+view.height);
+    await set('aspect','1.5');
+    $('modeShapes').click(); await set('blobs',4);
+    await sleep(400);
 
     // ================= bake and playback =================
     await set('loop',2);
