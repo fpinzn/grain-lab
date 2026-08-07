@@ -55,6 +55,11 @@ The space has three families of axes, and only a few in each actually change an 
 | **form** | layers · blur · dissolve · contrast · rim · spread · opacity | soft blob structure over the ramp |
 | **grain** | σ · cell size · chroma | texture, and the one that behaves differently at icon size |
 
+Everything updates live: change any parameter and the whole grid re-renders, carrying the
+selection with it so the detail panel and the export button never serve you the image from
+before the edit. While a slider is being dragged the tiles render at half resolution and
+snap back to full on release.
+
 Put any two on the axes and the rest are held fixed, so you are always looking at a plane
 through the space instead of a random pile. Click a tile to inspect it; **centre here**
 adopts it as the new middle and re-spreads the axes around it, which is how you walk

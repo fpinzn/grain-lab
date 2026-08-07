@@ -569,7 +569,7 @@
   ];
 
   var $=function(id){return document.getElementById(id)};
-  var state={seed:20260806,colors:PRESETS[2].cols.slice(),palIndex:2,pick:null,history:[]};
+  var state={seed:20260806,colors:PRESETS[2].cols.slice(),palIndex:2,pick:null,sel:null,history:[]};
 
   function base(){
     return{
@@ -637,17 +637,32 @@
     ctx.closePath();ctx.fill();
     ctx.globalCompositeOperation='source-over';
   }
+  // While a control is actively being dragged the whole grid is re-rendered on
+  // every input event. Shapes mode costs a blurred, dissolved mask per layer per
+  // tile, so drop to half resolution during the drag and let CSS scale it up;
+  // releasing the control triggers one full-quality pass.
+  var dragging=false;
   function tileCanvas(p,size){
-    var c=render(p,size,size);
-    if($('rounded').checked)iconMask(c.getContext('2d'),size,size);
+    var res=dragging?Math.max(48,Math.round(size/2)):size;
+    var c=render(p,res,res);
+    if($('rounded').checked)iconMask(c.getContext('2d'),res,res);
+    if(res!==size){
+      c.style.width=size+'px';
+      c.style.height=size+'px';
+    }
     return c;
   }
+
+  // The live grid, kept so the selection can be recomputed against fresh base
+  // params after any edit instead of going stale.
+  var grid={xs:[],ys:[],dx:null,dy:null,p:null,cells:[]};
 
   function buildGrid(){
     var p=base();
     var dx=axis($('ax').value), dy=axis($('ay').value);
     var n=+$('gridn').value, size=+$('tile').value;
     var xs=axisValues(dx,n), ys=axisValues(dy,n);
+    grid={xs:xs,ys:ys,dx:dx,dy:dy,p:p,cells:[]};
     var table=$('grid');
     while(table.firstChild)table.removeChild(table.firstChild);
 
@@ -683,7 +698,8 @@
             tag.className='tag';
             tag.textContent=dx.fmt(xs[c2])+' · '+dy.fmt(ys[r]);
             b.appendChild(tag);
-            b.addEventListener('click',function(){pick(q,dx,xs[c2],dy,ys[r],b)});
+            b.addEventListener('click',function(){selectCell(r,c2)});
+            grid.cells.push({r:r,c:c2,el:b});
             td.appendChild(b);
             tr.appendChild(td);
           })(c2);
@@ -691,7 +707,33 @@
         table.appendChild(tr);
       })(r);
     }
+    // Re-apply the selection against the NEW params. Without this the highlight
+    // vanishes on every edit and state.pick keeps the params from before it,
+    // so Export would hand back the pre-edit image.
+    if(state.sel&&state.sel.r<ys.length&&state.sel.c<xs.length)
+      selectCell(state.sel.r,state.sel.c);
+    else if(state.sel)clearPick();
     note('');
+  }
+
+  function cellEl(r,c){
+    for(var i=0;i<grid.cells.length;i++)
+      if(grid.cells[i].r===r&&grid.cells[i].c===c)return grid.cells[i].el;
+    return null;
+  }
+  function clearPick(){
+    state.sel=null;state.pick=null;
+    $('pickname').textContent='nothing selected';
+    var big=$('big'),dl=$('pickmeta');
+    while(big.firstChild)big.removeChild(big.firstChild);
+    while(dl.firstChild)dl.removeChild(dl.firstChild);
+    $('save512').disabled=true;
+    $('recentre').disabled=true;
+  }
+  function selectCell(r,c){
+    state.sel={r:r,c:c};
+    var q=withAxis(withAxis(grid.p,grid.dx,grid.xs[c]),grid.dy,grid.ys[r]);
+    pick(q,grid.dx,grid.xs[c],grid.dy,grid.ys[r],cellEl(r,c));
   }
 
   function pick(q,dx,xv,dy,yv,btn){
@@ -960,11 +1002,23 @@
   }
 
   var t=null;
-  function schedule(){clearTimeout(t);t=setTimeout(buildGrid,80)}
-  ['mode','stops','steps','mid','angle','amount','gsize','chroma','shadow',
-   'blobs','soft','enoise','contrast','rim','spread','alpha'].forEach(function(id){
+  function schedule(){clearTimeout(t);t=setTimeout(buildGrid,70)}
+  var LIVE=['mode','stops','steps','mid','angle','amount','gsize','chroma','shadow',
+            'blobs','soft','enoise','contrast','rim','spread','alpha'];
+  LIVE.forEach(function(id){
     $(id).addEventListener('input',function(){syncLabels();schedule()});
+    $(id).addEventListener('pointerdown',function(){dragging=true});
   });
+  // one full-quality pass when the control is let go, wherever the pointer ends up
+  ['pointerup','pointercancel'].forEach(function(ev){
+    window.addEventListener(ev,function(){
+      if(!dragging)return;
+      dragging=false;
+      clearTimeout(t);
+      buildGrid();
+    });
+  });
+  // keyboard users never set the drag flag, so they always get full quality
   ['ax','ay','gridn','tile','rounded'].forEach(function(id){
     $(id).addEventListener('input',buildGrid);
   });

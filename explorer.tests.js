@@ -60,6 +60,58 @@
       beforeBias+' -> '+$('mid').value);
     t('the path is recorded',/path:/.test($('crumbs').textContent));
 
+    // Live update: editing ANY parameter must refresh the tiles and carry the
+    // selection with them. Otherwise the highlight disappears and the detail —
+    // and Export — keep serving the params from before the edit.
+    await set('ax','mid'); await set('ay','amount'); await set('gridn','5');
+    tiles()[6].click(); await sleep(300);
+    var nameBefore=$('pickname').textContent;
+    var bigBefore=pxOf($('big').querySelector('canvas'));
+    var metaBefore=$('pickmeta').textContent;
+    await set('steps',6);
+    t('editing a parameter keeps the same cell selected',
+      tiles()[6].getAttribute('aria-pressed')==='true'&&$('pickname').textContent===nameBefore);
+    t('editing a parameter refreshes the detail preview',
+      pxOf($('big').querySelector('canvas'))!==bigBefore);
+    t('the detail metadata follows the edit',
+      $('pickmeta').textContent!==metaBefore&&/steps6/.test($('pickmeta').textContent.replace(/\s/g,'')));
+    t('export stays enabled through an edit',$('save512').disabled===false);
+    await set('steps',24);
+
+    // and the selection survives an axis swap, which rebuilds every tile
+    await set('ay','chroma');
+    t('the selection survives an axis change',tiles()[6].getAttribute('aria-pressed')==='true');
+    await set('ay','amount');
+
+    // shrinking the grid past the selected cell must drop it, not point at nothing
+    tiles()[24].click(); await sleep(300);
+    await set('gridn','3');
+    t('a selection outside a smaller grid is cleared cleanly',
+      $('save512').disabled===true&&/nothing selected/.test($('pickname').textContent),
+      $('pickname').textContent);
+    await set('gridn','5');
+
+
+    // Dragging a control renders at half resolution for speed; releasing it must
+    // restore full resolution, or the grid would stay soft after every edit.
+    tiles()[6].click(); await sleep(300);      // the block above cleared the selection
+    var sl=$('steps');
+    sl.dispatchEvent(new PointerEvent('pointerdown',{pointerId:1,bubbles:true,cancelable:true,isPrimary:true}));
+    sl.value=30; sl.dispatchEvent(new Event('input',{bubbles:true}));
+    await sleep(300);
+    t('dragging drops the tiles to half resolution',
+      tiles()[0].querySelector('canvas').width===64,
+      'width '+tiles()[0].querySelector('canvas').width);
+    t('half-res tiles still occupy the full tile box',
+      tiles()[0].querySelector('canvas').style.width==='128px');
+    window.dispatchEvent(new PointerEvent('pointerup',{pointerId:1,bubbles:true,cancelable:true,isPrimary:true}));
+    await sleep(300);
+    t('releasing restores full resolution',
+      tiles()[0].querySelector('canvas').width===128,
+      'width '+tiles()[0].querySelector('canvas').width);
+    t('the selection survives the drag',tiles()[6].getAttribute('aria-pressed')==='true');
+    await set('steps',24);
+
     // shapes mode
     await set('mode','shapes');
     t('form controls appear in shapes mode',$('shapegroup').style.display!=='none');
